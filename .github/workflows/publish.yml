@@ -31,6 +31,8 @@ jobs:
           sha256sum --check SHA256.txt
           expected=$(sha256sum TeknikServis_PRO.exe | cut -d' ' -f1)
           cp TeknikServis_PRO.exe TeknikAsistanim_PRO.exe
+          zip "TeknikServis_PRO_${version}_EXE.zip" TeknikServis_PRO.exe
+          unzip -p "TeknikServis_PRO_${version}_EXE.zip" TeknikServis_PRO.exe | sha256sum | grep -q "$expected"
           if gh release view "$tag" --json isDraft --jq .isDraft > "$RUNNER_TEMP/draft-state" 2>/dev/null; then
             if [ "$(cat "$RUNNER_TEMP/draft-state")" != "true" ]; then
               echo 'This version is already published; existing assets are preserved.'
@@ -40,7 +42,7 @@ jobs:
             gh release create "$tag" --draft --title "Teknik Servis PRO $version" --notes-file release-notes.md
           fi
           gh release edit "$tag" --notes-file release-notes.md
-          gh release upload "$tag" TeknikServis_PRO.exe TeknikAsistanim_PRO.exe --clobber
+          gh release upload "$tag" TeknikServis_PRO.exe TeknikAsistanim_PRO.exe "TeknikServis_PRO_${version}_EXE.zip" --clobber
           release_id=$(gh api "repos/$GH_REPO/releases?per_page=100" --jq ".[] | select(.tag_name == \"$tag\") | .id")
           [[ "$release_id" =~ ^[0-9]+$ ]]
           gh api "repos/$GH_REPO/releases/$release_id" > "$RUNNER_TEMP/release-info.json"
