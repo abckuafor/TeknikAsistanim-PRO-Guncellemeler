@@ -1,10 +1,7 @@
-Teknik Servis PRO 1.5.2
+Teknik Servis PRO 1.5.3
 
-- Daha belirgin, gölgeli ve yuvarlatılmış butonlar; mavi seçili menü, daha ferah cihaz satırları ve yeni üst alan.
-- Açılır sonuç/ayar pencereleri de ortak görünümü kullanır.
-- Servis Raporları sekmesi kaldırıldı. Bilgisayar geçmişi, günlük notlar ve mevcut rapor dosyaları korunur.
-- Güncelleme kaynağı ve elle kontrol butonları kaldırıldı; otomatik zorunlu güncelleme korunur.
-- Güncelleme Tarihçesi: gerçek kaydedilmiş sürüm, yerel tarih/saat ve işlem açıklaması. İlk açılışın kurulum tarihi olmadığı açıkça belirtilir; eski tarihler tahmin edilmez.
-- ZIP indirilebilir dosya eklendi; ZIP içinde yalnızca TeknikServis_PRO.exe bulunur.
+- Zorunlu güncelleme penceresinde UpdateReleaseNotes salt okunur özelliğine TwoWay bağlama hatası düzeltildi. Sürüm notları ve ilerleme açıkça OneWay bağlanır.
+- 1.5.2 görünüm, sade menü ve güncelleme tarihçesi korunur.
+- Eski 1.5.1 / 1.5.2 penceresi bu hatayla açılamıyorsa yeni EXE bir kez elle aynı klasöre konmalıdır. Data ve Drivers silinmez.
 
-Derleme başarılı. Yeni tarihçe için dört kontrol başarılı. Windows üzerinde görsel açılış ve otomatik EXE değiştirme testi bu Linux ortamında yapılmadı. EXE yayıncı sertifikasıyla imzalı değildir; SmartScreen uyarısı görülebilir.
+Windows yerel arayüz/güncelleme testi bu Linux ortamında yapılamadı. Önceki testler tekrarlanmadı. İmzasız EXE'de SmartScreen uyarısı görülebilir.
