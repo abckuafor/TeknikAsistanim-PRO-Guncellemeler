@@ -1,14 +1,12 @@
-Teknik Servis PRO 1.5.0
+Teknik Servis PRO 1.5.1 — zorunlu güncelleme penceresi
 
-- Uygulama adı ve görünümü yenilendi; veri klasörleri korunur.
-- Tablo listeleri, araştırma adayları, tarayıcı listesi ve internet seçenekleri için Hepsini Seç.
-- Uzun işlemler için ayrı ilerleme penceresi ve sonuç bildirimi.
-- Taramadan önce tüm takılı aygıtları PnPUtil/ConfigMgr ile yeniden keşif; Aygıtları Bul ve Onar ile görünür sorunlu aygıtlarda güvenli sürücü yöntemleri.
-- Kod 22 devre dışı aygıtlar için tek tek etkinleştirme onayı; ardından gerçek PnP durumunu doğrulama. Onaysız etkinleştirme yok.
-- Eski/yeni EXE adlarıyla güncelleme uyumluluğu. Data, Drivers ve kayıtlı AI ayarları korunur.
+- Yeni sürüm bulunduğunda otomatik pencere açılır. Güncellemeden ana işlemlere devam edilemez; programdan çıkılabilir.
+- Açılışta ve program açıkken 10 dakikada bir kontrol. Bilinen zorunlu sürüm yeniden başlatma/bağlantı kesilmesinde hatırlanır. Sürüm bilinmiyorsa çevrimdışı kullanım engellenmez; bağlantı hatası güncel diye gösterilmez.
+- Yönetici hesabında güncellemeyi reddeden kontrol kaldırıldı. Yükseltilmiş yardımcı, Administrators/SYSTEM izinli Program Files klasöründe doğrulanmış kopyayla çalışır. Başlangıç EXE özeti, peer PID, sürüm ve GitHub SHA256 kontrolleri korunur.
+- Kaydedilmemiş günlük/sonuç/sahip notları güncelleme öncesi saklanır; Data/Drivers ve API ayarları korunur. İndirme/doğrulama hatası eski EXE'yi değiştirmez; pencere tekrar denemeye izin verir.
 
-Derleme: .NET SDK 10.0.402; Windows x64 self-contained single-file EXE üretildi. Sekiz yeni mantık testi geçti; önceki testler tekrarlanmadı. Windows arayüzü, gerçek aygıt yeniden keşfi/etkinleştirme, UAC ve güncelleme sonrası yeniden açılış bu Linux ortamında test edilmedi. Bu sürümün bu işlevleri gerçek Windows testini bekliyor. EXE yayıncı sertifikasıyla imzalı değildir.
+ÖNEMLİ: 1.4 veya 1.5.0 sürümü yönetici hesabında güncellemeyi reddediyorsa bu eski EXE'nin içindeki kontrol uzaktan değişmez. Bu düzeltmeyi bir kez yeni EXE'yi aynı program klasörüne koyarak alın. Sonraki güncellemelerde yeni davranış geçerlidir. Dosya adı TeknikServis_PRO.exe veya TeknikAsistanim_PRO.exe olarak kalmalıdır.
 
-Mevcut 1.4 programın Uygulama Güncellemeleri bölümünden kontrol edilebilir. Elle geçişte eski programı kapatın; yalnızca EXE'yi değiştirin, Data ve Drivers klasörlerini koruyun. TeknikAsistanim_PRO.exe, önceki güncelleme istemcileri için aynı yeni sürümün uyumluluk kopyasıdır. İki EXE aynı anda çalıştırılmamalıdır.
+.NET 10 Windows x64 self-contained tek EXE gerçekten derlendi. Sekiz yeni kayıt/izin mantık testi geçti; eski testler tekrarlanmadı. Windows'ta popup, yönetici ACL/yardımcı başlatma ve gerçek EXE değiştirme/yeniden açılış bu Linux ortamında denenmedi. Bu sınırlar gerçek cihaz doğrulaması yerine geçmez.
 
-EXE SHA256: 6646F36526754491C467C46AC6514E5B1B3FF68533A4879175D416CC4AC36C42
+EXE SHA256: 73204E942428E4DFDE5C7965C03322A50193B85C7973D4598EC5F9182C3F2189
