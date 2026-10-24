@@ -52,7 +52,7 @@ jobs:
               if($new){break}
             }
             if(!$new){throw 'Updated main window was not verified'}
-            $expected=((Get-Content 'binaries/SHA256.txt') -split ' ')[0]
+            $expected='638c90c8bf308476f2f7cdee24150a1b2b5ac665d6775dac147095e7ff8660b3'
             if((Get-FileHash $exe -Algorithm SHA256).Hash -ne $expected){throw 'Updated executable hash mismatch'}
             if((Get-Content "$dir/Data/test-preserve.txt") -ne 'synthetic-sentinel-data' -or (Get-Content "$dir/Drivers/test-preserve.txt") -ne 'synthetic-sentinel-driver'){throw 'Preservation sentinel mismatch'}
             $answer.completed=$true;$answer.dataPreserved=$true;$answer.newWindowTitle=$new.MainWindowTitle
