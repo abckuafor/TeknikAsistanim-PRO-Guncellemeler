@@ -99,7 +99,16 @@ jobs:
             for($i=0;$i -lt 40;$i++){$native=FindNamed ([Windows.Automation.AutomationElement]::RootElement) 'System Properties' ([Windows.Automation.ControlType]::Window);if($native){break};Start-Sleep -Milliseconds 250}
             if(!$native){throw 'Windows computer name screen did not open'}
             $result.windowsRenameScreenOpened=$true
-            $change=$native.FindAll($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::Button))|Where-Object{$_.Current.Name -like 'Change*'}|Select-Object -First 1
+            Start-Sleep -Milliseconds 600
+            $tabs=$native.FindAll($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::TabItem))
+            $computerTab=$tabs|Where-Object{$_.Current.Name -like '*Computer*Name*'}|Select-Object -First 1
+            if($computerTab){([Windows.Automation.SelectionItemPattern]$computerTab.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern)).Select();Start-Sleep -Milliseconds 500}
+            $change=$null
+            for($i=0;$i -lt 40;$i++){
+              $change=$native.FindAll($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::Button))|Where-Object{$_.Current.Name.Replace('&','') -like '*Change*' -and $_.Current.IsEnabled}|Select-Object -First 1
+              if($change){break};Start-Sleep -Milliseconds 250
+            }
+            $result.nativeControls=@($native.FindAll($scope,[Windows.Automation.Condition]::TrueCondition)|ForEach-Object{$_.Current.ControlType.ProgrammaticName+': '+$_.Current.Name})
             if(!$change){throw 'Windows Change button missing'}
             ([Windows.Automation.InvokePattern]$change.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern)).Invoke();Start-Sleep -Milliseconds 300
             $nameDialog=$null
