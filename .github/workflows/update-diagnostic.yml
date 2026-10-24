@@ -1,0 +1,65 @@
+name: Diagnose update path only
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/update-diagnostic.yml']
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: windows-2025
+    timeout-minutes: 6
+    steps:
+      - name: Check real update from 1.6.0 without user data
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $ErrorActionPreference='Stop'
+          Add-Type -AssemblyName UIAutomationClient
+          Add-Type -AssemblyName UIAutomationTypes
+          New-Item -ItemType Directory (Join-Path $env:RUNNER_TEMP 'exact-archive-review') -Force | Out-Null
+          $dir=Join-Path $env:RUNNER_TEMP 'upgrade-review';New-Item -ItemType Directory $dir -Force | Out-Null
+          $answer=[ordered]@{kind='REAL_WINDOWS_UPDATE_TEST';completed=$false;errors=@()}
+          $old=$null
+          try { $pre=Invoke-WebRequest 'https://api.github.com/repos/abckuafor/TeknikAsistanim-PRO-Guncellemeler/releases/latest' -Headers @{'User-Agent'='TeknikServisPRO-Updater/1.5';'Accept'='application/vnd.github+json';'X-GitHub-Api-Version'='2022-11-28'}; $answer.metadataHttp=[int]$pre.StatusCode; $answer.latestTag=($pre.Content|ConvertFrom-Json).tag_name } catch {$answer.metadataError=$_.Exception.Message}
+          try {
+            gh release download v1.6.0 --pattern TeknikServis_PRO.exe --dir $dir
+            if($LASTEXITCODE -ne 0){throw 'Cannot retrieve previous verified release'}
+            $exe=Join-Path $dir 'TeknikServis_PRO.exe'
+            New-Item -ItemType Directory "$dir/Data","$dir/Drivers" -Force | Out-Null
+            'synthetic-sentinel-data' | Set-Content "$dir/Data/test-preserve.txt"
+            'synthetic-sentinel-driver' | Set-Content "$dir/Drivers/test-preserve.txt"
+            $old=Start-Process $exe -WorkingDirectory $dir -PassThru
+            $button=$null
+            $condition=[Windows.Automation.AndCondition]::new([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ProcessIdProperty,$old.Id),[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::NameProperty,'Güncelle ve Yeniden Aç'))
+            for($i=0;$i -lt 60;$i++){
+              $button=[Windows.Automation.AutomationElement]::RootElement.FindFirst([Windows.Automation.TreeScope]::Descendants,$condition)
+              if($button){break};Start-Sleep -Seconds 1
+            }
+            if(!$button){
+              $old.Refresh();$answer.oldExited=$old.HasExited;$answer.oldTitle=$old.MainWindowTitle
+              if($old.MainWindowHandle -ne 0){try{$root=[Windows.Automation.AutomationElement]::FromHandle($old.MainWindowHandle);$answer.visibleNames=@($root.FindAll([Windows.Automation.TreeScope]::Descendants,[Windows.Automation.Condition]::TrueCondition)|ForEach-Object {$_.Current.Name}|Where-Object {$_}|Select-Object -First 60)}catch{$answer.automationError=$_.Exception.Message}}
+              throw 'Required update button did not appear'
+            }
+            $answer.popupFound=$true
+            ([Windows.Automation.InvokePattern]$button.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern)).Invoke()
+            $new=$null
+            for($i=0;$i -lt 120;$i++){
+              Start-Sleep -Seconds 1
+              $new=Get-Process -Name TeknikServis_PRO -ErrorAction SilentlyContinue | Where-Object {$_.Path -eq $exe -and $_.MainWindowTitle -like 'Teknik Servis PRO 1.6.1*'} | Select-Object -First 1
+              if($new){break}
+            }
+            if(!$new){throw 'Updated main window was not verified'}
+            $expected=((Get-Content 'binaries/SHA256.txt') -split ' ')[0]
+            if((Get-FileHash $exe -Algorithm SHA256).Hash -ne $expected){throw 'Updated executable hash mismatch'}
+            if((Get-Content "$dir/Data/test-preserve.txt") -ne 'synthetic-sentinel-data' -or (Get-Content "$dir/Drivers/test-preserve.txt") -ne 'synthetic-sentinel-driver'){throw 'Preservation sentinel mismatch'}
+            $answer.completed=$true;$answer.dataPreserved=$true;$answer.newWindowTitle=$new.MainWindowTitle
+            [void]$new.CloseMainWindow();[void]$new.WaitForExit(5000)
+          } catch { $answer.errors += $_.Exception.Message } finally {
+            $answer | ConvertTo-Json -Depth 6 | Tee-Object (Join-Path $env:RUNNER_TEMP 'exact-archive-review/upgrade-result.json')
+            Get-Process -Name TeknikServis_PRO -ErrorAction SilentlyContinue | Where-Object {$_.Path -eq (Join-Path $dir 'TeknikServis_PRO.exe')} | Stop-Process -Force -ErrorAction SilentlyContinue
+          }
+          # A failed integration check stays explicit; it does not claim the source application's safe manual installation failed.
+
