@@ -1,10 +1,9 @@
-Teknik Servis PRO 1.7.4
+Teknik Servis PRO 1.7.5
 
-- Uygulamanın sonuç, onay, ayrıntı, ilerleme ve zorunlu güncelleme pencerelerinde ortak modern tasarım.
-- Sonuçlar üç kısa kartta: Sonuç / Ne yapıldı? / Şimdi ne yapmalısınız?
-- Doğrulanan, tamamlanamayan ve bekleyen adımlar ayrı satırlarda; teknik ayrıntılar açılır bölümde.
-- Uzun açıklamalar paragraflara ayrılır. Tam teknik kayıtlar korunur.
-- Risk onaylarında metin kısaltılmaz; Vazgeç varsayılandır ve pencereyi kapatmak onay sayılmaz.
-- Sürücü, tarama, ağ onarımı ve otomatik hız örneğinin mevcut işlevleri korunur. Data/Drivers korunmalıdır.
+- Kullanıcının gönderdiği mavi logo uygulamanın yeni simgesi oldu.
+- EXE dosyası, ana pencere ve ortak açılır pencerelerde aynı simge kullanılır.
+- Ana ekranın üst kısmında başlığın yanında beyaz, yuvarlatılmış logo alanı eklendi.
+- Özgün PNG aynen korunur; simge farklı Windows boyutlarını destekler. Logo dosyaları EXE içine gömülüdür, yan dosya gerekmez.
+- Mevcut işlevler, geçmiş ve sürücü arşivi korunur. Data ve Drivers klasörlerini silmeyin.
 
-Windows'un UAC/SmartScreen pencereleri, WIA ve üreticinin kendi kurulum pencereleri işletim sistemi/üretici tarafından yönetilir; uygulama bunları değiştirmez. Fiziksel cihaz testleri bu arayüz güncellemesinde yeniden yapılmadı. İmzasız EXE için SmartScreen uyarısı sürebilir; gerçek virüs tespitinde korumayı kapatmayın veya istisna eklemeyin.
+Bu sürüm görsel güncellemedir. Önceki fiziksel cihaz testleri tekrarlanmadı. İmzasız EXE için SmartScreen uyarısı sürebilir; logo kod imzası yerine geçmez. Gerçek virüs tespitinde korumayı kapatmayın veya istisna eklemeyin.
