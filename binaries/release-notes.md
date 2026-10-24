@@ -1,8 +1,7 @@
-Teknik Servis PRO 1.7.12
+Teknik Servis PRO 1.7.13
 
-- Tüm tablo listelerinin başına Seç sütunu ve başlık altına tümünü seç/temizle kutusu eklendi.
-- Tek kutu tıklaması satırı seçer; başlık kutusu görünen uygun satırları seçer. Kısmi seçim ara durumla görünür.
-- Ayrı Hepsini Seç butonları ve aynı işi yapan menü öğeleri kaldırıldı.
-- Tarayıcı, internet işlem seçenekleri ve güncelleme kayıtları da aynı tablo seçimini kullanır.
-- Sürücü/araştırma/internet seçimleri gerçek işlem seçimlerine bağlıdır; destek sayfaları kurulum paketi gibi seçilmez.
-- Seçim tek başına kurulum veya onarım başlatmaz. Tek cihaz/port/model açılır seçicileri tekli kalır.
+- Geçmiş sütunları Bilgisayar adı ve Kime ait olarak düzenlendi.
+- Bilgisayar adıyla açılan detay penceresine Bilgisayar Adını Değiştir düğmesi eklendi.
+- Düğme Windows'un kendi Bilgisayar Adı ekranını açar; Değiştir... ile ad girilir. Windows geçerlilik, izin ve kurum/etki alanı işlemlerini yönetir.
+- Yalnız kullanılan bilgisayarın kimliğiyle eşleşen kayıtta çalışır; başka geçmiş bilgisayar için kapalıdır ve çalıştırmada kimlik tekrar kontrol edilir.
+- Windows isterse yeniden başlatın; ardından tarama aynı kimlikteki geçmiş adını günceller. Eski geçmiş ve sahip bilgisi korunur.
