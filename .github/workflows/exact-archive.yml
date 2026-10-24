@@ -1,0 +1,70 @@
+name: Original ZIP and Windows startup review
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/exact-archive.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  review:
+    runs-on: windows-2025
+    timeout-minutes: 10
+    steps:
+      - name: Scan exact withdrawn archive then check startup
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference='Stop'
+          $dir=Join-Path $env:RUNNER_TEMP 'exact-archive-review'
+          New-Item -ItemType Directory $dir -Force | Out-Null
+          $result=[ordered]@{verdict='NOT_SCANNED'; errors=@(); exeExecuted=$false; startupVerified=$false}
+          $app=$null
+          try {
+            if ((Get-Service WinDefend).Status -ne 'Running') { Start-Service WinDefend -ErrorAction Stop }
+            Update-MpSignature -ErrorAction Stop
+            $status=Get-MpComputerStatus
+            $result.defenderVersion=$status.AMProductVersion
+            $result.signatureVersion=$status.AntivirusSignatureVersion
+            $result.signatureUpdatedUtc=$status.AntivirusSignatureLastUpdated.ToUniversalTime().ToString('o')
+            if (!$status.AMServiceEnabled -or $status.AntivirusSignatureLastUpdated -lt (Get-Date).AddDays(-3)) { throw 'Defender or current signatures unavailable' }
+            $zip=Join-Path $dir 'TeknikServis_PRO_1.5.3_EXE.zip'
+            gh api -H 'Accept: application/octet-stream' repos/abckuafor/TeknikAsistanim-PRO-Guncellemeler/releases/assets/669937376 > $zip
+            if ($LASTEXITCODE -ne 0) { throw 'Cannot download exact original archive' }
+            $result.zipSha256=(Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($result.zipSha256 -ne 'ae8dcb2409dc48a1153d33cf6532780ebf23ea5a3734bcbfc6ade5bc7c0eb8dd') { throw 'Original archive hash mismatch' }
+            $engine=Get-ChildItem "$env:ProgramData/Microsoft/Windows Defender/Platform/*/MpCmdRun.exe" | Sort-Object FullName -Descending | Select-Object -First 1
+            & $engine.FullName -Scan -ScanType 3 -File $zip -DisableRemediation 2>&1 | Tee-Object "$dir/scan-original-zip.txt"
+            $result.scanExitCode=$LASTEXITCODE
+            if ($LASTEXITCODE -ne 0) { $result.verdict='DETECTED_OR_SCAN_ERROR'; throw 'Original archive scan did not succeed' }
+            $result.verdict='NO_DETECTION_IN_THIS_ENVIRONMENT'
+            $folder=Join-Path $dir 'application'; Expand-Archive $zip $folder
+            $exe=Join-Path $folder 'TeknikServis_PRO.exe'
+            if ((Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant() -ne '0e670b0bb5b4b9828a5f7bb145ab207fb404e125224c6d17a16945bebe8e6917') { throw 'Extracted EXE hash mismatch' }
+            $app=Start-Process $exe -WorkingDirectory $folder -PassThru
+            $result.exeExecuted=$true
+            for ($i=0;$i -lt 30;$i++) {
+              Start-Sleep -Seconds 1; $app.Refresh()
+              if ($app.HasExited) { throw "Application exited before startup verification: $($app.ExitCode)" }
+              if ($app.MainWindowHandle -ne 0 -and $app.MainWindowTitle -like 'Teknik Servis PRO 1.5.3*') { $result.startupVerified=$true; $result.windowTitle=$app.MainWindowTitle; break }
+            }
+            if (!$result.startupVerified) { throw "Main WPF window not verified: $($app.MainWindowTitle)" }
+            [void]$app.CloseMainWindow()
+            if (!$app.WaitForExit(10000)) { throw 'Application did not close normally' }
+            $result.applicationExitCode=$app.ExitCode
+            if ($app.ExitCode -ne 0) { throw 'Application exit code was not zero' }
+          } catch { $result.errors += $_.Exception.Message } finally {
+            if ($app -and !$app.HasExited) { Stop-Process -Id $app.Id -Force -ErrorAction SilentlyContinue }
+            try { Get-MpThreatDetection | ConvertTo-Json -Depth 8 | Set-Content "$dir/threat-detections.json" } catch {}
+            $result | ConvertTo-Json -Depth 8 | Tee-Object "$dir/result.json"
+            Remove-Item "$dir/*.zip" -Force -ErrorAction SilentlyContinue
+            Remove-Item "$dir/application" -Recurse -Force -ErrorAction SilentlyContinue
+          }
+          if ($result.verdict -ne 'NO_DETECTION_IN_THIS_ENVIRONMENT' -or !$result.startupVerified -or $result.errors.Count) { exit 1 }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: exact-original-archive-and-startup
+          path: ${{ runner.temp }}/exact-archive-review
+          retention-days: 14
