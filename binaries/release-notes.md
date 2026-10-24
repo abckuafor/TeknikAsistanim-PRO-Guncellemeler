@@ -1,8 +1,8 @@
-Teknik Servis PRO 1.7.7
+Teknik Servis PRO 1.7.8
 
-- Başlık altında iki sütun ve iki satırda hizalı bilgisayar/lisans bilgileri.
-- Bilgisayar adı ve işletim sistemi ayrı alanlarda; lisans durumu ayrı, Kalan süre = ... ayrı alanda.
-- Açılışta bilgisayar adı ve Windows sürüm bilgisi görünür; tarama sonrası bulunan sistem adı güncellenir.
-- Okunamayan süre Bilinmiyor; bitiş bildirilmediyse Süre sınırı bildirilmedi. Tahmini veya kanıtsız Süresiz bilgisi üretilmez.
-- Uzun değerlerin tamamı üzerine gelince okunur. İnternet hız ibresi ve önceki özellikler korunur.
-- Data/Drivers korunmalıdır. EXE imzasızdır; SmartScreen uyarısı sürebilir.
+- Güncelleme tarihçesindeki geniş kartlar kısa, en fazla 720 piksel genişliğinde satırlara dönüştürüldü.
+- Satırda sürüm, kayıt tarihi/saati ve Değişiklikleri gör bağlantısı bulunur.
+- Satıra tıklayınca o sürümün değişiklikleri modern ayrıntı penceresinde açılır.
+- Bilinen eski sürümlerin notları çevrimdışı okunur; gelecekteki güncellemelerde yayının notları tarihçe kaydında saklanır.
+- Eski tarihçe kayıtları korunur. İlk açılış zamanı kurulum zamanı diye gösterilmez; kaydı olmayan sürümler için tarih uydurulmaz.
+- Data/Drivers ve önceki özellikler korunur. EXE imzasızdır; SmartScreen uyarısı sürebilir.
