@@ -1,13 +1,9 @@
-Teknik Servis PRO 1.6.0 — kapsamlı kontrol ve anlaşılır sonuçlar
+Teknik Servis PRO 1.6.1
 
-- Kapsamlı Tara: PnP donanımı/sürücüler, kayıtlı USB/IP/ağ yazıcıları ve faks kuyrukları, WIA/TWAIN kaynak bilgisi, ilgili hizmetler ve internet teşhisi. Yerel ağ WSD keşfi ayrıca isteğe bağlı ve onaylıdır.
-- Özetle ve Özet ve Teslim bölümü: işlem sonuçları, bekleyen/başarısız adımlar, özeti geçmişe kaydetme; kullanıcı gözlemi ve takip kontrolü.
-- Aygıt etkinleştirme onayı doğrudan yönetici işleminin içinde, PnPUtil'den hemen önce zorunlu. Tarama öncesi aygıt yeniden keşfi varsayılan kapalı; Windows'un otomatik tanıması uygulamanın etkinleştirmesi sayılmaz.
-- OEM sürücü dışa aktarma yedeği, yedek başarısızsa kurulumu atlama, önce/sonra PnP/sürüm/INF karşılaştırması ve yeniden doğrulanan yedek INF'den geri kurma denemesi. Inbox sürücü/tam sistem geri alma garantisi yok; düşük sıralı sürücü zorlanmaz.
-- Yazıcı test sayfası için izin ve Evet/Hayır/Daha sonra fiziksel çıktı sorusu; kalite gözlemi ve çıktı yoksa güncel kuyruk bilgisi/kağıt/toner/bağlantı kontrol önerileri. Belirsiz cihaz-kuyruk eşleşmesinde başka yazıcıya otomatik çıktı yok.
-- Ağ onarımında her adım sonrası erişim testi; test doğrulanırsa sonraki sıfırlamaları durdurma. Başarısızsa kablo/port/Wi-Fi/modem/servis sağlayıcı için takip önerileri; kesin donanım arızası iddiası yok.
-- Bilinen yerel IP için 9100/631/515 erişim denetimi. WSD keşfi cihaz kimliği veya sürücü uyumluluğunu tek başına kanıtlamaz.
+- Yazıcı testinin üretimde kullanılan onay/gönderim/fiziksel gözlem/kalite/takip teşhisi akışı ayrıştırıldı; benzetimli sınama aynı akışı kullanır. Gerçek cihaz yokken yazdırılmış gibi sonuç verilmez.
+- Yerel ağ keşfine WSD yanında mDNS IPP/IPPS/LPD/tarayıcı/eSCL hizmet duyuruları eklendi. Bozuk paket, pointer döngüsü, boyut ve kayıt limitleri denetlenir. Gelen adresler otomatik çalıştırılmaz/kurulmaz. Bütün VLAN/arabirim/cihazlar için keşif garantisi yoktur.
+- 14 yeni benzetimli kontrol başarılı: onay reddi, kuyruk reddi, çıktı yok/ertelenmiş/kalite gözlemi, belirsiz/istisnalı gönderim, DNS ayrıştırma/döngü, kurulum iptal/yeniden başlatma/belirsiz durum durdurması. Bunlar fiziksel test değildir.
+- Yayın kapısı: yeni EXE ve ZIP Defender taraması; Windows ana pencere açılışı/kapanışı. Önceki test grupları tekrarlanmadı.
+- 1.6.0 özellikleri korunur: kapsamlı tarama, özet/teslim/geçmiş, OEM yedek/karşılaştırma, onaylı etkinleştirme ve ağ takip kontrolleri.
 
-Sınırlar: Tüm ağ cihazlarının keşfi, otomatik faks gönderme, bütün üretici yazılımlarını otomatik kurma, tam TWAIN oturumu ve fiziksel testler her modelde desteklenmez. Firmware/BIOS ve uyumsuz/imzasız sürücü zorlaması yok. Yeni fiziksel cihaz testleri yapılmadı. Kullanıcı gözlemleri bağımsız otomatik doğrulama değildir.
-
-Yeni özet mantığına ait beş kontrol geçti; eski test grupları tekrarlanmadı. Yayın, ayrı Windows Server ortamında güncel Defender taraması ve ana pencere açılış/normal kapanış kontrolü başarılı olursa yapılır. Windows 10/11 donanım kurulumu ve gerçek otomatik güncelleme testi bu yayında yapılmadı. Önceki kullanıcı Defender tespitinin Microsoft tarafından yanlış alarm olarak onaylandığı iddia edilmez. Korumayı kapatmayın; yeni uyarı çıkarsa çalıştırmayın. Kod imzalama sertifikası yok.
+Tam TWAIN/faks otomasyonu, her üreticinin kurucusunu otomatik yükleme ve her işlem için geri alma tamamlanmış değildir. Fiziksel aygıt testleri yapılmadı. Güncelleme uçtan uca denemesinin sonucu ayrı upgrade-result.json / workflow kaydında gösterilir; başarısız deneme başarı sayılmaz. Önceki kullanıcı Defender tespitinin Microsoft tarafından yanlış alarm ilan edildiği iddia edilmez. Korumayı kapatmayın/istisna eklemeyin. EXE kod imzalı değildir.
