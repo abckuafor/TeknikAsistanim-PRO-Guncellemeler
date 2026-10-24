@@ -1,9 +1,9 @@
-Teknik Servis PRO 1.7.2 — Wi-Fi hız kontrolü
+Teknik Servis PRO 1.7.3 — otomatik internet indirme örneği
 
-- Tara ve internet teşhisine Wi-Fi alım/gönderim bağlantı hızı, okunabilen sinyal yüzdesi, radyo türü ve kanal bilgisi eklendi. Windows WLAN API kullanılır; yerelleştirilmiş netsh metni ayrıştırılmaz.
-- Bağlantı Hızını Kontrol Et kablolu ve kablosuz bilgileri toplar. Wi-Fi Hızını Kontrol Et yalnız kablosuzu okur. Değerler yerel radyo bağlantısıdır; internet indirme/yükleme hızından ayrıdır.
-- Düşük sinyalde mesafe/duvar/parazit/konum; düşük hızda kart ve erişim noktası kapasitesi, anten/kanal genişliği/güç tasarrufu ve desteklenen bantlarla karşılaştırma önerileri. Kanal numarası tek başına 2.4/5/6 GHz kanıtı sayılmaz; düşük Wi-Fi hızından kablo arızası çıkarılmaz.
-- Okunamayan alanlar ve WLAN hizmeti/Windows izin engelleri açıklanır. İzinler, Wi-Fi kanalı veya güç ayarları otomatik değiştirilmez. SSID/profil adı, BSSID ve şifre rapora eklenmez. Yerel OS WLAN kitaplığı yalnız System32'den yüklenir.
-- 10 yeni benzetimli kontrol başarılı; önceki test grupları tekrarlanmadı. Yeni EXE/ZIP Defender, Windows açılışı/kapanışı ve Wi-Fi bilgi düğmesiyle sınanır. Donanım/hizmet yokluğu hız ölçümü başarılı diye gösterilmez.
+- Kullanıcı talimatıyla indirme örneğinin başlatma onayı kaldırıldı. İnternet Hız Örneği düğmesi doğrudan çalışır.
+- Kapsamlı Tara ve Bağlantıyı Tara kullanıcı işlemlerinde bir kez otomatik örnek alınır. Ağ onarımının ara kontrollerinde 10 MB örnek tekrar edilmez.
+- Hız örneği en fazla 10.000.000 bayt uygulama verisi ve 25 saniye sınırında kalır. Protokol trafiği eklenebilir. Cloudflare sunucusu IP adresini görür; kota bilgisi ekranda görünür.
+- Sonuç bildirimi ve başarısız/eksik indirmeyi başarılı saymama korunur. Hız örneği ayrı gösterilir; Wi-Fi/Ethernet bağlantı bilgileri silinmez.
+- Statik IP/VPN/proxy etkileyen onarım, aygıt etkinleştirme, kurulum ve yazdırma izinleri kaldırılmadı.
 
-Gerçek bağlı Wi-Fi donanımı, sinyal gücü ve fiziksel alım/gönderim hızları bu ortamda ölçülmedi. Native bağlı bağlantı dalı gerçek cihazla ayrıca doğrulanmalı. Windows konum/mahremiyet izni gerektiğinde kullanıcı Windows ayarlarından kendi karar verir; program korumayı aşmaz. Önceki sürüm sınırlamaları korunur. İnternet indirme örneği isteğe bağlı 10 MB olarak kalır; Wi-Fi kontrolü dosya indirmez. EXE imzasızdır; virüs tespitinde korumayı kapatmayın/istisna eklemeyin.
+Önceki test grupları tekrarlanmaz. Yeni Windows paketi Defender/açılış ve indirme düğmesinin onaysız başlayıp sonuçlanmasıyla sınanır. Başlatmanın tamamlanması başarılı hız ölçümüyle aynı değildir; indirme sonucu ayrıca kaydedilir. Fiziksel Wi-Fi/kablo/port ve kullanıcının internet hattı bu ortamda test edilmedi. Kısa tek sunucu örneği tam hız/tarife/yükleme testi değildir. EXE imzasızdır; virüs tespitinde korumayı kapatmayın.
