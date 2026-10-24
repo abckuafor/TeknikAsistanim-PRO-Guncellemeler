@@ -1,9 +1,11 @@
-Teknik Servis PRO 1.6.1
+Teknik Servis PRO 1.6.2 — sade ana ekran
 
-- Yazıcı testinin üretimde kullanılan onay/gönderim/fiziksel gözlem/kalite/takip teşhisi akışı ayrıştırıldı; benzetimli sınama aynı akışı kullanır. Gerçek cihaz yokken yazdırılmış gibi sonuç verilmez.
-- Yerel ağ keşfine WSD yanında mDNS IPP/IPPS/LPD/tarayıcı/eSCL hizmet duyuruları eklendi. Bozuk paket, pointer döngüsü, boyut ve kayıt limitleri denetlenir. Gelen adresler otomatik çalıştırılmaz/kurulmaz. Bütün VLAN/arabirim/cihazlar için keşif garantisi yoktur.
-- 14 yeni benzetimli kontrol başarılı: onay reddi, kuyruk reddi, çıktı yok/ertelenmiş/kalite gözlemi, belirsiz/istisnalı gönderim, DNS ayrıştırma/döngü, kurulum iptal/yeniden başlatma/belirsiz durum durdurması. Bunlar fiziksel test değildir.
-- Yayın kapısı: yeni EXE ve ZIP Defender taraması; Windows ana pencere açılışı/kapanışı. Önceki test grupları tekrarlanmadı.
-- 1.6.0 özellikleri korunur: kapsamlı tarama, özet/teslim/geçmiş, OEM yedek/karşılaştırma, onaylı etkinleştirme ve ağ takip kontrolleri.
+- Ana ekrandaki yeniden keşif, WSD/mDNS ve OEM yedek seçenekleri varsayılan açık; uzun checkbox açıklamaları kaldırıldı. Gerekli ağ/aygıt/kurulum onayları korunur; ZPL desteği kutusu otomatik işaretlenmez.
+- Ana ekrandaki Aygıtları Bul ve Onar düğmesi kaldırıldı; gelişmiş Diğer menüsünden erişilir.
+- Tüm cihazlar filtresi ve Seçim/Diğer açılır menü düğmeleri yuvarlatılmış, gölgeli görünümde.
+- Sol menü beyaz zeminli, ayrı kenarlıklı ve gölgeli kartlar; seçili kart mavi.
+- Sol menü sırası: Donanım → Yazıcı/Barkod/Tarayıcı → İnternet → Israrlı Araştırma → Bilgisayar Geçmişi → Windows Onarım → AI → Özet/Teslim → Güncelleme Tarihçesi. Araştırmaya yönlendiren düğmeler yeni sıra için düzeltildi.
+- Tablo sütun başlığı altında belirgin ayırıcı çizgi.
+- Mevcut cihaz onayı, yedek, AI, geçmiş, özet ve güncelleme kodu korunur. Fiziksel cihaz işlev testleri bu görsel düzenlemede tekrarlanmadı.
 
-Tam TWAIN/faks otomasyonu, her üreticinin kurucusunu otomatik yükleme ve her işlem için geri alma tamamlanmış değildir. Fiziksel aygıt testleri yapılmadı. Güncelleme uçtan uca denemesinin sonucu ayrı upgrade-result.json / workflow kaydında gösterilir; başarısız deneme başarı sayılmaz. Önceki kullanıcı Defender tespitinin Microsoft tarafından yanlış alarm ilan edildiği iddia edilmez. Korumayı kapatmayın/istisna eklemeyin. EXE kod imzalı değildir.
+Yeni EXE/ZIP Defender ve Windows açılış kontrolüyle; filtre/açılır menü ve menü sırası UI Automation ile sınanır. Yayın ancak kontroller geçerse açılır. İmzasız uygulama için SmartScreen uyarısı görülebilir; virüs tespitinde korumayı kapatmayın veya istisna eklemeyin.
