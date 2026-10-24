@@ -1,0 +1,67 @@
+name: Verify native 1.8 to 1.9 update
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  update:
+    runs-on: windows-2025
+    timeout-minutes: 7
+    steps:
+      - name: Exercise actual published update and preserve data
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $ErrorActionPreference='Stop'
+          $root=Join-Path $env:RUNNER_TEMP 'native-update190';New-Item -ItemType Directory $root -Force|Out-Null
+          $r=[ordered]@{errors=@();from='1.8.0';to='1.9.0';updateInvoked=$false;newVersionOpened=$false;dataPreserved=$false}
+          try{
+            $latest=gh api "repos/$env:GH_REPO/releases/latest"|ConvertFrom-Json
+            if($latest.tag_name -ne 'v1.9.0'){throw 'Expected published 1.9.0'}
+            gh release download v1.8.0 --repo $env:GH_REPO --pattern TeknikServis_PRO.exe --dir $root
+            if($LASTEXITCODE -ne 0){throw 'Old verified release download failed'}
+            $exe=Join-Path $root 'TeknikServis_PRO.exe'
+            $old=gh api "repos/$env:GH_REPO/releases/tags/v1.8.0"|ConvertFrom-Json
+            $asset=$old.assets|Where-Object name -eq 'TeknikServis_PRO.exe'
+            if(('sha256:'+(Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()) -ne $asset.digest){throw 'Old EXE digest mismatch'}
+            New-Item -ItemType Directory (Join-Path $root 'Data'),(Join-Path $root 'Drivers')|Out-Null
+            Set-Content (Join-Path $root 'Data/update-proof.txt') 'keep-data-190'
+            Set-Content (Join-Path $root 'Drivers/update-proof.txt') 'keep-drivers-190'
+            $oldApp=Start-Process $exe -WorkingDirectory $root -PassThru
+            Add-Type -AssemblyName UIAutomationClient
+            Add-Type -AssemblyName UIAutomationTypes
+            $scope=[Windows.Automation.TreeScope]::Descendants
+            $notice=$null
+            for($i=0;$i -lt 120;$i++){
+              $notice=[Windows.Automation.AutomationElement]::RootElement.FindFirst($scope,[Windows.Automation.AndCondition]::new([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::NameProperty,'Teknik Servis PRO — Güncelleme gerekli'),[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ProcessIdProperty,$oldApp.Id)))
+              if($notice){break};Start-Sleep -Seconds 1
+            }
+            if(!$notice){throw 'Mandatory update popup did not appear'}
+            $button=$notice.FindFirst($scope,[Windows.Automation.AndCondition]::new([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::NameProperty,'Güncelle ve Yeniden Aç'),[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::Button)))
+            if(!$button){throw 'Update button missing'}
+            ([Windows.Automation.InvokePattern]$button.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern)).Invoke();$r.updateInvoked=$true
+            $new=$null
+            for($i=0;$i -lt 150;$i++){
+              $new=Get-Process|Where-Object {$_.Path -eq $exe -and $_.MainWindowTitle -like 'Teknik Servis PRO 1.9.0*'}|Select-Object -First 1
+              if($new){break};Start-Sleep -Seconds 1
+            }
+            if(!$new){throw 'New version did not reopen'}
+            $r.newVersionOpened=$true;$r.windowTitle=$new.MainWindowTitle
+            $asset=$latest.assets|Where-Object name -eq 'TeknikServis_PRO.exe'
+            $r.targetSha256=(Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+            if(('sha256:'+$r.targetSha256) -ne $asset.digest){throw 'Installed EXE differs from published release'}
+            $r.dataPreserved=((Get-Content (Join-Path $root 'Data/update-proof.txt')) -eq 'keep-data-190') -and ((Get-Content (Join-Path $root 'Drivers/update-proof.txt')) -eq 'keep-drivers-190')
+            if(!$r.dataPreserved){throw 'Data/Drivers sentinels were not preserved'}
+            $receipt=Get-Content (Join-Path $root 'Data/Updates/last-update.json') -Raw|ConvertFrom-Json
+            $r.receiptApplied=$receipt.applied
+            $new.CloseMainWindow()|Out-Null
+          }catch{$r.errors+= $_.Exception.Message}
+          finally{$r|ConvertTo-Json -Depth 6|Tee-Object (Join-Path $root 'native-update190-result.json')}
+          if($r.errors.Count){exit 1}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-update190-result
+          path: ${{ runner.temp }}/native-update190/native-update190-result.json
