@@ -1,9 +1,10 @@
-Teknik Servis PRO 1.7.3 — otomatik internet indirme örneği
+Teknik Servis PRO 1.7.4
 
-- Kullanıcı talimatıyla indirme örneğinin başlatma onayı kaldırıldı. İnternet Hız Örneği düğmesi doğrudan çalışır.
-- Kapsamlı Tara ve Bağlantıyı Tara kullanıcı işlemlerinde bir kez otomatik örnek alınır. Ağ onarımının ara kontrollerinde 10 MB örnek tekrar edilmez.
-- Hız örneği en fazla 10.000.000 bayt uygulama verisi ve 25 saniye sınırında kalır. Protokol trafiği eklenebilir. Cloudflare sunucusu IP adresini görür; kota bilgisi ekranda görünür.
-- Sonuç bildirimi ve başarısız/eksik indirmeyi başarılı saymama korunur. Hız örneği ayrı gösterilir; Wi-Fi/Ethernet bağlantı bilgileri silinmez.
-- Statik IP/VPN/proxy etkileyen onarım, aygıt etkinleştirme, kurulum ve yazdırma izinleri kaldırılmadı.
+- Uygulamanın sonuç, onay, ayrıntı, ilerleme ve zorunlu güncelleme pencerelerinde ortak modern tasarım.
+- Sonuçlar üç kısa kartta: Sonuç / Ne yapıldı? / Şimdi ne yapmalısınız?
+- Doğrulanan, tamamlanamayan ve bekleyen adımlar ayrı satırlarda; teknik ayrıntılar açılır bölümde.
+- Uzun açıklamalar paragraflara ayrılır. Tam teknik kayıtlar korunur.
+- Risk onaylarında metin kısaltılmaz; Vazgeç varsayılandır ve pencereyi kapatmak onay sayılmaz.
+- Sürücü, tarama, ağ onarımı ve otomatik hız örneğinin mevcut işlevleri korunur. Data/Drivers korunmalıdır.
 
-Önceki test grupları tekrarlanmaz. Yeni Windows paketi Defender/açılış ve indirme düğmesinin onaysız başlayıp sonuçlanmasıyla sınanır. Başlatmanın tamamlanması başarılı hız ölçümüyle aynı değildir; indirme sonucu ayrıca kaydedilir. Fiziksel Wi-Fi/kablo/port ve kullanıcının internet hattı bu ortamda test edilmedi. Kısa tek sunucu örneği tam hız/tarife/yükleme testi değildir. EXE imzasızdır; virüs tespitinde korumayı kapatmayın.
+Windows'un UAC/SmartScreen pencereleri, WIA ve üreticinin kendi kurulum pencereleri işletim sistemi/üretici tarafından yönetilir; uygulama bunları değiştirmez. Fiziksel cihaz testleri bu arayüz güncellemesinde yeniden yapılmadı. İmzasız EXE için SmartScreen uyarısı sürebilir; gerçek virüs tespitinde korumayı kapatmayın veya istisna eklemeyin.
