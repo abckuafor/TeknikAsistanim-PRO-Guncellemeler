@@ -1,8 +1,8 @@
-Teknik Servis PRO 1.7.10
+Teknik Servis PRO 1.7.11
 
-- Ağ açıklaması ölçülen bulgulara bağlandı: DNS, iki farklı HTTP/HTTPS hedefi, iki harici IP yanıtı ve seçilen ağ yolunun IP/ağ geçidi bilgileri birlikte değerlendirilir.
-- IPv6 adresi dikkate alınır; farklı adaptörlerin IP ve ağ geçidi bilgileri tek bağlantı gibi birleştirilmez.
-- DNS odağı, yerel IP/adres alma, eksik ağ geçidi, giriş sayfası yönlendirmesi ve HTTPS güvenli bağlantı hatası ayrı açıklanır.
-- Bir web hedefi çalışıyorsa tek hedefin engeli yüzünden genel internet yok denmez.
-- Wi-Fi düşük hız/sinyal birlikteliği ve Ethernet hata sayacı artışı, karşılaştırmalı kontrol önerisine bağlanır.
-- Eksik veriler ve ping yanıtı alınamaması tek başına arıza olarak yorumlanmaz. Risk onayları ve güvenlik kontrolleri korunur.
+- Başlığa Kime ait alanı eklendi; mevcut bilgisayarın geçmişte kayıtlı sahibi gösterilir.
+- Geçmişte Kime alanı önce kayıtlı isim ve Düzenle düğmesi olarak görünür.
+- Düzenle giriş kutusunu açar; başarılı Kaydet kutuyu kapatır ve başlığı günceller.
+- Vazgeç taslağı bırakır; kaydetme hatasında giriş kutusu açık kalır. Taslak isim başlığa yansımaz.
+- Bilgisayar eşleştirmesi donanım kimliğine dayanır; başka geçmiş satırı seçildiğinde başlıktaki sahip değişmez.
+- Açılışta geçmişte kayıtlı isim bulunur; bu okuma yeni tarama veya servis kaydı oluşturmaz.
