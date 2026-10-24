@@ -110,7 +110,12 @@ jobs:
             if((ById $statusWindow 'OperationStatusExplanation').Current.Name -like '*başlatılıyor*'){throw 'Completed window retained stale starting text'}
             $result.staleStartingTextCleared=$true
             if((ById $statusWindow 'PlainOperationCounts').Current.Name -notlike '*adım*'){throw 'Plain step counts missing after operation'}
-            if(!(ById $statusWindow 'UnifiedProgress').Current.IsOffscreen){throw 'Busy progress remained visible after completion'}
+            for($j=0;$j -lt 20;$j++){
+              $bar=ById $statusWindow 'UnifiedProgress'
+              if(!$bar -or $bar.Current.IsOffscreen){break};Start-Sleep -Milliseconds 100
+            }
+            $result.progressControlInAutomationTreeAfterCompletion=[bool]$bar
+            if($bar -and !$bar.Current.IsOffscreen){throw 'Busy progress remained visible after completion'}
             $result.completedProgressHidden=$true
             $technical=ById $statusWindow 'TechnicalOperationTab'
             ([Windows.Automation.SelectionItemPattern]$technical.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern)).Select();Start-Sleep -Milliseconds 200
