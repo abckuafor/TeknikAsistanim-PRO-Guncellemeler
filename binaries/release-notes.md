@@ -1,7 +1,9 @@
-Teknik Servis PRO 1.7.17
+Teknik Servis PRO 1.7.18
 
-- Alt şeritteki uzun ve çok satırlı işlem/ölçüm açıklamaları kaldırıldı. Alt şerit yalnız kısa Hazır / İşlem sürüyor bilgisini gösterir.
-- İşlem Durumu penceresine Genel durum sekmesi eklendi. Bu açılıştaki son 200 bildirim saatleriyle, tam metin olarak ve en yeni bilgi üstte gösterilir.
-- İnternet sayfasındaki uzun teşhis, bağlantı hızı ve indirme açıklamaları İşlem Durumu içindeki sonuç kartlarında ve genel durumda okunur. Hız ibresi korunur.
-- Güncel durum açıklaması anında yenilenir. Açıklamalar alt şeridi büyütüp sayfayı sıkıştırmaz.
-- İşlem kayıtları, teknik ayrıntılar, onaylar, Data/Drivers ve kaydedilmiş yapay zeka ayarları korunur. Genel durum listesi bu açılışa aittir; servis geçmişindeki kalıcı kayıtların yerine geçmez.
+- İnternet Sorunları sayfasındaki beş işlem tek İnternet Bağlantısını Düzelt düğmesinde birleştirildi.
+- Tek akış bağlantı/IP/DNS/web erişimini, Ethernet hız/duplex/sayaç ve Wi-Fi hız/sinyal bilgilerini inceler. Bağlantı çalışsa bile 10 MB/25 saniye indirme ölçümüne geçer.
+- Gereken onarımlar mevcut kullanıcı onaylarıyla temel yöntemlerden ileri yöntemlere ilerler. İptal veya yeniden başlatma bekleyen durumda sonraki işlemler durur.
+- Düşük indirme hızı ayrıca değerlendirilir; bağlı görünmesi hız sorununun giderildiği anlamına gelmez. Ölçüm başarısızsa hız değeri üretilmez.
+- Aynı tıklamada indirme örneği en fazla bir kez alınır. Kapsamlı taramanın ayrı indirme örneği iki kez çalıştırılmaz.
+- Sonuç ve açıklamalar İşlem Durumu içindedir; hız ibresi korunur. Tek tek ağ onarımı seçme aracı Gelişmiş Araçlar > Ağ Onarım Seçenekleri'ne taşındı.
+- Data/Drivers, geçmiş, yapay zeka ayarları ve riskli işlem onayları korunur.
