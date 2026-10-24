@@ -90,7 +90,10 @@ jobs:
             $completion=$null
             for($i=0;$i -lt 40;$i++){$completion=FindWindow 'İşlem tamamlandı';if($completion){break};Start-Sleep -Seconds 1}
             if(!$completion){throw 'Read-only Ethernet check did not complete'}
-            $ok=FindName $completion 'Tamam';if(!$ok){$ok=FindName $completion 'OK'};Click $ok;$result.readOnlyEthernetCheck=$true
+            Add-Type 'using System; using System.Runtime.InteropServices; public static class NoticeCloser { [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr window,uint message,IntPtr wParam,IntPtr lParam); }'
+            if($completion.Current.ProcessId -ne $app.Id){throw 'Completion owner mismatch'}
+            if(![NoticeCloser]::PostMessage([IntPtr]$completion.Current.NativeWindowHandle,0x0111,[IntPtr]1,[IntPtr]::Zero)){throw 'Cannot acknowledge completion'}
+            Start-Sleep -Milliseconds 500;$result.readOnlyEthernetCheck=$true
             SelectTab 'AI Hata Analizi';Click (FindName $root 'AI Ayarları / API Anahtarı')
             $dialog=FindWindow 'AI ayarları / API anahtarı'
             if(!$dialog){throw 'AI settings window missing'}
