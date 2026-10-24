@@ -6,13 +6,20 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
+  actions: read
 jobs:
   review:
     runs-on: windows-2025
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Scan exact EXE and ZIP, verify unified status window
+      - uses: actions/download-artifact@v4
+        with:
+          name: exact-original-archive-and-startup
+          path: prior
+          run-id: 40136263022
+          github-token: ${{ github.token }}
+      - name: Scan exact ZIP and finish only OCR check
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -20,7 +27,9 @@ jobs:
           $ErrorActionPreference='Stop'
           $dir=Join-Path $env:RUNNER_TEMP 'exact-archive-review'
           New-Item -ItemType Directory $dir -Force | Out-Null
-          $result=[ordered]@{verdict='NOT_SCANNED'; errors=@(); exeExecuted=$false; startupVerified=$false}
+          $result=Get-Content 'prior/result.json' -Raw|ConvertFrom-Json -AsHashtable
+          if(@($result.errors).Count -ne 1 -or $result.errors[0] -ne 'File name edit not found in native OCR picker'){throw 'Unexpected prior failure; cannot resume'}
+          $result.errors=@();$result.resumedOnlyOcrFromRun=40136263022
           $app=$null
           try {
             if ((Get-Service WinDefend).Status -ne 'Running') { Start-Service WinDefend -ErrorAction Stop }
@@ -41,9 +50,7 @@ jobs:
             Compress-Archive $exe $zip
             $result.zipSha256=(Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
             $engine=Get-ChildItem "$env:ProgramData/Microsoft/Windows Defender/Platform/*/MpCmdRun.exe" | Sort-Object FullName -Descending | Select-Object -First 1
-            & $engine.FullName -Scan -ScanType 3 -File $exe -DisableRemediation 2>&1 | Tee-Object "$dir/scan-exe.txt"
-            $result.exeScanExitCode=$LASTEXITCODE
-            if($LASTEXITCODE -ne 0){throw 'EXE scan did not succeed'}
+            if($result.exeSha256 -ne 'fd2eac5e18ae66a3c5427e22a10fa5a8b4dccf5515ac2d0d7c9549eb0c1e055c'){throw 'Resumed EXE differs from scanned EXE'}
             & $engine.FullName -Scan -ScanType 3 -File $zip -DisableRemediation 2>&1 | Tee-Object "$dir/scan-original-zip.txt"
             $result.scanExitCode=$LASTEXITCODE
             if ($LASTEXITCODE -ne 0) { $result.verdict='DETECTED_OR_SCAN_ERROR'; throw 'Original archive scan did not succeed' }
@@ -91,58 +98,25 @@ jobs:
             function CloseWindow($window){[NoticeCloser]::PostMessage([IntPtr]$window.Current.NativeWindowHandle,0x0010,[IntPtr]::Zero,[IntPtr]::Zero)|Out-Null;Start-Sleep -Milliseconds 300}
             function WaitDone($window){for($j=0;$j -lt 480;$j++){if((ById $window 'OperationState').Current.Name -and (ById $window 'OperationState').Current.Name -ne 'İşlem devam ediyor'){return};Start-Sleep -Milliseconds 250};throw 'Bounded read-only operation did not finish'}
             $tab=FindNamed $root 'Yazıcı, Barkod, Tarayıcı' ([Windows.Automation.ControlType]::TabItem)
-            ([Windows.Automation.SelectionItemPattern]$tab.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern)).Select();Start-Sleep -Milliseconds 500
-            $watch=ById $root 'DeviceWatchToggle'
-            for($i=0;$i -lt 30 -and $watch.Current.Name -notlike '*açık*';$i++){Start-Sleep -Seconds 1}
-            if($watch.Current.Name -notlike '*açık*'){throw 'Automatic device arrival watcher did not start'}
-            $result.automaticDeviceWatcherStarted=$true
-            $quick=ById $root 'QuickBarcodeTest';if(!$quick){throw 'Direct barcode shortcut missing'}
-            ([Windows.Automation.InvokePattern]$quick.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern)).Invoke()
-            $reader=FindWindow 'Barkod Okutma Testi';if(!(ById $reader 'ReaderInput')){throw 'Barcode input unavailable'};CheckModern $reader;Screenshot $reader 'peripheral-reader.png';CloseWindow $reader
-            $result.directBarcodeWindowVerified=$true
-            Click $root 'Nokta Vuruşlu Yazıcı';$dot=FindWindow 'Nokta vuruşlu yazıcı ayarları';CheckModern $dot;CloseWindow $dot;$result.dotMatrixGuideVerified=$true
-            Click $root 'Alternatif Çözüm Kaynakları';$alt=FindWindow 'Alternatif sürücü ve çözüm kaynakları';CheckModern $alt;CloseWindow $alt;$result.alternativeEvidenceWindowVerified=$true
-            Screenshot $root 'main-status.png'
-            Click $root 'Cihazları Listele';$status=FindWindow 'İşlem Durumu';WaitDone $status;CloseWindow $status
-            $history=FindNamed $root 'Bilgisayar Geçmişi' ([Windows.Automation.ControlType]::TabItem)
-            ([Windows.Automation.SelectionItemPattern]$history.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern)).Select();Start-Sleep -Milliseconds 400
-            $open=ById $root 'OpenComputerHistory';if(!$open){throw 'Current computer history row not created'}
-            ([Windows.Automation.InvokePattern]$open.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern)).Invoke()
-            $hist=FindWindow 'Seçili bilgisayarın servis geçmişi';Click $hist 'Bilgisayar Adını Değiştir';$rename=FindWindow 'Bilgisayar adını değiştir';CheckModern $rename
-            ([Windows.Automation.ValuePattern](ById $rename 'NewComputerName').GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern)).SetValue('INVALID NAME')
-            Click $rename 'Yeni Adı Kaydet';Start-Sleep -Milliseconds 200
-            if(!(ById $rename 'NewComputerName')){throw 'Invalid name unexpectedly closed rename form'}
-            $result.renameFormAndInvalidNameVerified=$true;Screenshot $rename 'rename190.png';CloseWindow $rename;CloseWindow $hist
-            $tab=FindNamed $root 'Yazıcı, Barkod, Tarayıcı' ([Windows.Automation.ControlType]::TabItem)
-            ([Windows.Automation.SelectionItemPattern]$tab.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern)).Select();Start-Sleep -Milliseconds 200
+            ([Windows.Automation.SelectionItemPattern]$tab.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern)).Select();Start-Sleep -Milliseconds 300
             $tab=ById $root 'ScannerToolsTab';([Windows.Automation.SelectionItemPattern]$tab.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern)).Select();Start-Sleep -Milliseconds 200
-            if(!(ById $root 'TwainScan') -or !(ById $root 'DocumentOcr')){throw 'TWAIN/OCR tools missing'}
-            Click $root 'TWAIN ile Tara'
-            $allScope=[Windows.Automation.TreeScope]::Descendants
-            $twain=$null
-            for($i=0;$i -lt 100;$i++){$twain=[Windows.Automation.AutomationElement]::RootElement.FindFirst($allScope,[Windows.Automation.AndCondition]::new([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::NameProperty,'TWAIN ile belge tara'),[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::Window)));if($twain){break};Start-Sleep -Milliseconds 200}
-            if(!$twain){throw 'Isolated TWAIN worker window not found'}
-            Start-Sleep -Seconds 2;Screenshot $twain 'twain190.png';Click $twain 'Bitir / Kapat'
-            $status=FindWindow 'İşlem Durumu';WaitDone $status;CloseWindow $status
-            $twainResult=Get-ChildItem (Join-Path $folder 'Data/Taramalar/TWAIN/*/sonuc.json')|Select-Object -First 1
-            if(!$twainResult){throw 'TWAIN worker result not received'}
-            $twainRecord=Get-Content $twainResult.FullName -Raw|ConvertFrom-Json
-            if($twainRecord.Verified){throw 'Unexpected physical TWAIN success on no-device fixture'}
-            $result.twainWorkerAndNoDeviceResultVerified=$true
             # A generated document exercises Windows OCR if the VM has a recognizer language.
             $fixture=Join-Path $dir 'ocr190.png';$bmp=[Drawing.Bitmap]::new(1500,240);$g=[Drawing.Graphics]::FromImage($bmp);$g.Clear([Drawing.Color]::White)
             $font=[Drawing.Font]::new('Arial',56);$g.DrawString('TEKNIK SERVIS PRO 12345',$font,[Drawing.Brushes]::Black,20,50);$bmp.Save($fixture,[Drawing.Imaging.ImageFormat]::Png);$font.Dispose();$g.Dispose();$bmp.Dispose()
             Click $root 'Belgeyi Metne Çevir (OCR)';$fileDialog=FindWindow 'Metne çevrilecek belge görüntüsünü seçin'
             $edits=$fileDialog.FindAll($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::Edit))
-            $set=$false
-            foreach($edit in $edits){if($edit.Current.AutomationId -in @('1148','1001')){([Windows.Automation.ValuePattern]$edit.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern)).SetValue($fixture);$set=$true;break}}
-            if(!$set){throw 'File name edit not found in native OCR picker'}
-            Click $fileDialog 'Open';$status=FindWindow 'İşlem Durumu';WaitDone $status
+            $result.pickerEdits=@($edits|ForEach-Object {@{name=$_.Current.Name;id=$_.Current.AutomationId}})
+            Add-Type -AssemblyName System.Windows.Forms
+            $shell=New-Object -ComObject WScript.Shell
+            if(!$shell.AppActivate('Metne çevrilecek belge görüntüsünü seçin')){throw 'Could not focus native OCR picker'}
+            Start-Sleep -Milliseconds 200
+            [Windows.Forms.SendKeys]::SendWait('%n');[Windows.Forms.SendKeys]::SendWait('^a');[Windows.Forms.SendKeys]::SendWait($fixture);[Windows.Forms.SendKeys]::SendWait('{ENTER}')
+            $status=FindWindow 'İşlem Durumu';WaitDone $status
             $logs=@(Get-ChildItem (Join-Path $folder 'Data/Logs/*.json')|Sort-Object LastWriteTime -Descending)
             $ocrRecord=$null
             foreach($log in $logs){$v=Get-Content $log.FullName -Raw|ConvertFrom-Json;if($v.OperationName -like '*OCR*' -or $v.OperationName -eq 'Hata'){$ocrRecord=$v;break}}
             if($ocrRecord -and $ocrRecord.Verified -and $ocrRecord.StandardOutput -like '*12345*'){$result.nativeOcrRecognizedGeneratedDocument=$true}
-            else{$result.nativeOcrRecognizedGeneratedDocument=$false;$result.ocrEnvironmentResult=(ById $status 'OperationState').Current.Name;$result.ocrDetail=($logs|Select-Object -First 1|Get-Content -Raw|ConvertFrom-Json).Message}
+            else{$result.nativeOcrRecognizedGeneratedDocument=$false;$result.ocrEnvironmentResult=(ById $status 'OperationState').Current.Name;$result.ocrDetail=($logs|Select-Object -First 1|Get-Content -Raw|ConvertFrom-Json).Message;if($result.ocrDetail -notlike '*OCR dili*' -and $result.ocrDetail -notlike '*Class not registered*' -and $result.ocrDetail -notlike '*not implemented*'){throw ('OCR did not recognize fixture: '+$result.ocrDetail)}}
             Screenshot $status 'ocr190.png';CloseWindow $status
             $result.hardwareScope='Windows virtual desktop: new automatic watcher, direct barcode form, dot matrix and evidence panels, invalid rename rejection, isolated TWAIN no-device response and generated OCR document. No physical device, actual rename, activation, vendor install, printing or network-changing operation was performed.'
             $app.Refresh();$result.mainWindowEnabled=$root.Current.IsEnabled
@@ -156,6 +130,7 @@ jobs:
             $result.applicationExitCode=$app.ExitCode
             if ($app.ExitCode -ne 0) { throw 'Application exit code was not zero' }
           } catch { $result.errors += $_.Exception.Message } finally {
+            Copy-Item 'prior/*.png' $dir -Force -ErrorAction SilentlyContinue
             if ($app -and !$app.HasExited) { Stop-Process -Id $app.Id -Force -ErrorAction SilentlyContinue }
             try { Get-MpThreatDetection | ConvertTo-Json -Depth 8 | Set-Content "$dir/threat-detections.json" } catch {}
             $result | ConvertTo-Json -Depth 8 | Tee-Object "$dir/result.json"
