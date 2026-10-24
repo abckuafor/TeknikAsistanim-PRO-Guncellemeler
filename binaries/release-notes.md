@@ -1,7 +1,7 @@
-Teknik Servis PRO 1.7.16
+Teknik Servis PRO 1.7.17
 
-- Özet, işlem ilerlemesi ve sonuçlar tek İşlem Durumu düğmesinde birleşti.
-- Kolay anlatım ilk açılan sekmedir: yapılan, yapılamayan, durdurulan ve kontrol bekleyen işler ayrı kartlarda anlatılır. Teknik ayrıntılar ve notlar isteğe bağlı açılır.
-- Aynı pencere işlem sürerken ilerlemeyi, bitince sonucu gösterir. Tekrar basılınca yeni pencere oluşturulmaz.
-- Kolay anlatım metinlerinin seçili sekme renginden etkilenmesi düzeltildi. Metinler koyu renkle okunur; içerik pencerenin genişliğine yayılır.
-- Eksik seçim ve başarısız adımlar başarı olarak gösterilmez. Onaylar, geçmiş, Data/Drivers ve yapay zeka ayarları korunur.
+- Alt şeritteki uzun ve çok satırlı işlem/ölçüm açıklamaları kaldırıldı. Alt şerit yalnız kısa Hazır / İşlem sürüyor bilgisini gösterir.
+- İşlem Durumu penceresine Genel durum sekmesi eklendi. Bu açılıştaki son 200 bildirim saatleriyle, tam metin olarak ve en yeni bilgi üstte gösterilir.
+- İnternet sayfasındaki uzun teşhis, bağlantı hızı ve indirme açıklamaları İşlem Durumu içindeki sonuç kartlarında ve genel durumda okunur. Hız ibresi korunur.
+- Güncel durum açıklaması anında yenilenir. Açıklamalar alt şeridi büyütüp sayfayı sıkıştırmaz.
+- İşlem kayıtları, teknik ayrıntılar, onaylar, Data/Drivers ve kaydedilmiş yapay zeka ayarları korunur. Genel durum listesi bu açılışa aittir; servis geçmişindeki kalıcı kayıtların yerine geçmez.
