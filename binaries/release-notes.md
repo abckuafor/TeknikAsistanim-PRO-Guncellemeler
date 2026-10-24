@@ -1,7 +1,8 @@
-Teknik Servis PRO 1.7.9
+Teknik Servis PRO 1.7.10
 
-- İşlem sonuçları, oturum özeti ve sonraki adımlarda müşteriyle konuşan teknik servis dili.
-- Genel çekinceler yerine duruma ve cihaz türüne göre somut kontrol önerileri.
-- Ağ, Wi-Fi/Ethernet, yazıcı/tarayıcı, cihaz kurtarma, sürücü araştırması ve AI açıklamalarında sadeleştirme.
-- Başarısız, bekleyen, durdurulan ve yeniden başlatma isteyen adımlar açıkça ayrı tutulur.
-- Teknik günlükler ve kullanıcı notları korunur; risk onayları ve kurulum güvenlik kontrolleri değiştirilmez.
+- Ağ açıklaması ölçülen bulgulara bağlandı: DNS, iki farklı HTTP/HTTPS hedefi, iki harici IP yanıtı ve seçilen ağ yolunun IP/ağ geçidi bilgileri birlikte değerlendirilir.
+- IPv6 adresi dikkate alınır; farklı adaptörlerin IP ve ağ geçidi bilgileri tek bağlantı gibi birleştirilmez.
+- DNS odağı, yerel IP/adres alma, eksik ağ geçidi, giriş sayfası yönlendirmesi ve HTTPS güvenli bağlantı hatası ayrı açıklanır.
+- Bir web hedefi çalışıyorsa tek hedefin engeli yüzünden genel internet yok denmez.
+- Wi-Fi düşük hız/sinyal birlikteliği ve Ethernet hata sayacı artışı, karşılaştırmalı kontrol önerisine bağlanır.
+- Eksik veriler ve ping yanıtı alınamaması tek başına arıza olarak yorumlanmaz. Risk onayları ve güvenlik kontrolleri korunur.
