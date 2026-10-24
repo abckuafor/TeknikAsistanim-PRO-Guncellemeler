@@ -38,7 +38,14 @@ jobs:
               $notice=[Windows.Automation.AutomationElement]::RootElement.FindFirst($scope,[Windows.Automation.AndCondition]::new([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::NameProperty,'Teknik Servis PRO — Güncelleme gerekli'),[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ProcessIdProperty,$oldApp.Id)))
               if($notice){break};Start-Sleep -Seconds 1
             }
-            if(!$notice){throw 'Mandatory update popup did not appear'}
+            if(!$notice){
+              $oldApp.Refresh();$r.oldProcessExited=$oldApp.HasExited
+              if($oldApp.HasExited){$r.oldExitCode=$oldApp.ExitCode}else{$r.oldWindowTitle=$oldApp.MainWindowTitle}
+              $windows=[Windows.Automation.AutomationElement]::RootElement.FindAll([Windows.Automation.TreeScope]::Children,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ProcessIdProperty,$oldApp.Id))
+              $r.visibleWindows=@($windows|ForEach-Object {@{title=$_.Current.Name;text=@($_.FindAll($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::Text))|ForEach-Object {$_.Current.Name})}})
+              try{$anonymous=Invoke-RestMethod "https://api.github.com/repos/$env:GH_REPO/releases/latest" -Headers @{'User-Agent'='TeknikServisPRO-Updater/1.5'} -TimeoutSec 25;$r.anonymousLatestTag=$anonymous.tag_name}catch{$r.anonymousApiError=$_.Exception.Message}
+              throw 'Mandatory update popup did not appear'
+            }
             $button=$notice.FindFirst($scope,[Windows.Automation.AndCondition]::new([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::NameProperty,'Güncelle ve Yeniden Aç'),[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::Button)))
             if(!$button){throw 'Update button missing'}
             ([Windows.Automation.InvokePattern]$button.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern)).Invoke();$r.updateInvoked=$true
@@ -47,7 +54,10 @@ jobs:
               $new=Get-Process|Where-Object {$_.Path -eq $exe -and $_.MainWindowTitle -like 'Teknik Servis PRO 1.9.0*'}|Select-Object -First 1
               if($new){break};Start-Sleep -Seconds 1
             }
-            if(!$new){throw 'New version did not reopen'}
+            if(!$new){
+              $r.runningWindows=@([Windows.Automation.AutomationElement]::RootElement.FindAll([Windows.Automation.TreeScope]::Children,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::Window))|ForEach-Object {@{title=$_.Current.Name;text=@($_.FindAll($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::Text))|ForEach-Object {$_.Current.Name})}})
+              throw 'New version did not reopen'
+            }
             $r.newVersionOpened=$true;$r.windowTitle=$new.MainWindowTitle
             $asset=$latest.assets|Where-Object name -eq 'TeknikServis_PRO.exe'
             $r.targetSha256=(Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
