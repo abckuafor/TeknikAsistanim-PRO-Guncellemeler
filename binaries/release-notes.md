@@ -1,12 +1,15 @@
-Teknik Servis PRO 1.8.0 — cihaz servis merkezi
+Teknik Servis PRO 1.9.0
 
-- Üst/alt çubuk daraltıldı; bilgi sırası Bilgisayar adı, Kime ait, Lisans durumu oldu. İşletim sistemi ve kalan süre sağda korunur.
-- Yazıcı, Tarayıcı ve Barkod için ayrı Bul, Kur ve Onar akışları eklendi. Hedef cihaz seçimi, yeniden keşif, sürücü/tam üretici programı araştırması, imza/uyumluluk ve kurulum onayları aynı akışta.
-- İmzalı EXE/MSI ve resmî ZIP içindeki imzalı kurucular desteklenir. ZIP kurulumunda tam paket yöneticiye özel alana resmî kaynaktan yeniden indirilip doğrulanır; kullanıcı klasöründen DLL çalıştırılmaz.
-- IP ile RAW 9100 yazıcı ekleme, yerel yazıcı ayarı yedeği/geri alma, yalnız seçili kuyruğu temizleme, paylaşım ve USB/enerji kaydı teşhisi eklendi.
-- Gerçek barkod okutma alanında metin, önek, Enter/Tab ve klavye farkları kontrol edilir; fiziksel okutma beyanı ayrıca kaydedilir.
-- Barkod yazıcısı için model/dil onaylı ZPL/EPL/TSPL test etiketi ve ölçü/DPI ayarları. ZPL/TSPL kalibrasyonu; EPL'de üretici yöntemi kullanılır.
-- WIA tarayıcıda ADF/çift yön/DPI özellikleri ve desteklenen kaynakta sınırlı çok sayfalı görüntü aktarımı. TWAIN/OCR için üretici programı araştırma/açma desteği.
-- Çok işlevli cihaz tarama kaynağı kontrolü, Windows/PDF baskı ayrımı, nokta vuruşlu kâğıt/başlangıç ayarı yardımı.
-- USB takma izleme/yeni aygıt farkı, OEM servis paketi dışa aktarma/arşive alma ve aynı bilgisayarda yeniden başlatma sonrası bekleyen sonucu kontrol etme.
-- Gerçek cihaz/üreticiye göre destek değişir; fiziksel testler yapılmadan tam işlev başarısı gösterilmez. Data/Drivers ve eski ayarlar korunur.
+- Yeni cihaz bildirimi açılışta başlar. Devam eden işlem/pencere varsa bildirim sıraya alınır; sonra cihaz ve tür seçimi sunulur.
+- Barkod Okutma Testi bölümün üstüne doğrudan eklendi.
+- Devre dışı cihaz için adı/kimliği gösteren Evet / Hayır onayı. Pencereyi kapatmak onay değildir.
+- Yerel bilgisayarın adını uygulama içinden değiştirin; etki alanında kurum yöneticisi yönlendirmesi, yönetici onayı ve yeniden başlatma kontrolü.
+- Kurulumdan sonra cihaz/PnP/sürücü ve üretici program kayıtları yeniden okunur. Gerçek test ayrı izlenir.
+- Aynı üreticinin evrensel sürücü adayları araştırılır; alternatif çözüm kaynakları görünür. INF/donanım/imza denetimleri kaldırılmadı.
+- Tarayıcı: ayrı süreçte 64 bit TWAIN kaynağıyla gerçek görüntü alma ve BMP/PNG/JPEG belgeden Windows OCR ile TXT çıkarma.
+- Nokta vuruşlu yazıcılar: kâğıt/form/başlangıç ayarı adımları, yedek ve test ekranı.
+- Sonuç yönlendirmeleri yedek, OCR ve ad değiştirme işlemlerine göre düzeltildi.
+
+Gereksinimler: Windows 10 2004 (19041) veya üzeri x64. TWAIN için kurulu 64 bit sürücü ve DSM; OCR için Windows OCR dil bileşeni gerekir. Üreticinin kendi kurulum/tarama pencereleri kullanılabilir. Her model için sıfır kullanıcı müdahalesiyle kurulum ve otomatik mekanik/firmware ayarı vaat edilmez.
+
+Fiziksel cihaz testleri bu ortamda yapılamaz. Kod imzası için yayıncı sertifikası yoktur; EXE imzasızdır ve SmartScreen çıkabilir. Ücretli işlem başlatılmadı. Data/Drivers korunmalıdır. GitHub'a kaynak kod veya müşteri geçmişi yüklenmez.
