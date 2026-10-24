@@ -1,8 +1,8 @@
-Teknik Servis PRO 1.7.11
+Teknik Servis PRO 1.7.12
 
-- Başlığa Kime ait alanı eklendi; mevcut bilgisayarın geçmişte kayıtlı sahibi gösterilir.
-- Geçmişte Kime alanı önce kayıtlı isim ve Düzenle düğmesi olarak görünür.
-- Düzenle giriş kutusunu açar; başarılı Kaydet kutuyu kapatır ve başlığı günceller.
-- Vazgeç taslağı bırakır; kaydetme hatasında giriş kutusu açık kalır. Taslak isim başlığa yansımaz.
-- Bilgisayar eşleştirmesi donanım kimliğine dayanır; başka geçmiş satırı seçildiğinde başlıktaki sahip değişmez.
-- Açılışta geçmişte kayıtlı isim bulunur; bu okuma yeni tarama veya servis kaydı oluşturmaz.
+- Tüm tablo listelerinin başına Seç sütunu ve başlık altına tümünü seç/temizle kutusu eklendi.
+- Tek kutu tıklaması satırı seçer; başlık kutusu görünen uygun satırları seçer. Kısmi seçim ara durumla görünür.
+- Ayrı Hepsini Seç butonları ve aynı işi yapan menü öğeleri kaldırıldı.
+- Tarayıcı, internet işlem seçenekleri ve güncelleme kayıtları da aynı tablo seçimini kullanır.
+- Sürücü/araştırma/internet seçimleri gerçek işlem seçimlerine bağlıdır; destek sayfaları kurulum paketi gibi seçilmez.
+- Seçim tek başına kurulum veya onarım başlatmaz. Tek cihaz/port/model açılır seçicileri tekli kalır.
