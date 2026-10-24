@@ -99,7 +99,7 @@ jobs:
             $provider=ById $settings 'AiProviderChoice'
             if(!$provider){throw 'Provider selector missing'}
             $selection=[Windows.Automation.SelectionPattern]$provider.GetCurrentPattern([Windows.Automation.SelectionPattern]::Pattern)
-            $chosen=@($selection.GetCurrentSelection())
+            $chosen=@($selection.Current.GetSelection())
             if($chosen.Count -ne 1 -or $chosen[0].Current.Name -ne 'Gemini'){throw 'Setup shortcut did not select Gemini'}
             $result.geminiSelectedByShortcut=$true
             foreach($name in @('Gemini üyeliğim yok','API anahtarı al','Yapıştır','Kaydet')){
@@ -122,7 +122,7 @@ jobs:
             $settings=FindWindow 'Yapay Zeka Ayarları / API Anahtarı'
             $provider=ById $settings 'AiProviderChoice'
             $selection=[Windows.Automation.SelectionPattern]$provider.GetCurrentPattern([Windows.Automation.SelectionPattern]::Pattern)
-            if(@($selection.GetCurrentSelection())[0].Current.Name -ne 'Gemini'){throw 'Provider lost when settings reopened in the same session'}
+            if(@($selection.Current.GetSelection())[0].Current.Name -ne 'Gemini'){throw 'Provider lost when settings reopened in the same session'}
             $result.providerRetainedWithinSession=$true
             Click $settings 'Kapat';Start-Sleep -Milliseconds 250
             $app.Refresh();$result.mainWindowEnabled=$root.Current.IsEnabled
