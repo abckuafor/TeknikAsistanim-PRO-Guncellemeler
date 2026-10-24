@@ -107,8 +107,12 @@ jobs:
             if(!$repair){throw 'Advanced repair dialog missing'}
             $result.advancedRepairWindow=$true;Click (FindName $repair 'Kapat')
 
-            [void]$app.CloseMainWindow()
-            if (!$app.WaitForExit(10000)) { throw 'Application did not close normally' }
+            $app.Refresh();[void]$app.CloseMainWindow()
+            if (!$app.WaitForExit(10000)) {
+              $windows=[Windows.Automation.AutomationElement]::RootElement.FindAll([Windows.Automation.TreeScope]::Children,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ProcessIdProperty,$app.Id))
+              $result.remainingWindows=@($windows|ForEach-Object {$_.Current.Name})
+              throw 'Application did not close normally'
+            }
             $result.applicationExitCode=$app.ExitCode
             if ($app.ExitCode -ne 0) { throw 'Application exit code was not zero' }
           } catch { $result.errors += $_.Exception.Message } finally {
