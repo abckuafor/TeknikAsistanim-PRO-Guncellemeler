@@ -1,11 +1,10 @@
-Teknik Servis PRO 1.6.2 — sade ana ekran
+Teknik Servis PRO 1.7.0 — sade araçlar ve internet yardımcısı
 
-- Ana ekrandaki yeniden keşif, WSD/mDNS ve OEM yedek seçenekleri varsayılan açık; uzun checkbox açıklamaları kaldırıldı. Gerekli ağ/aygıt/kurulum onayları korunur; ZPL desteği kutusu otomatik işaretlenmez.
-- Ana ekrandaki Aygıtları Bul ve Onar düğmesi kaldırıldı; gelişmiş Diğer menüsünden erişilir.
-- Tüm cihazlar filtresi ve Seçim/Diğer açılır menü düğmeleri yuvarlatılmış, gölgeli görünümde.
-- Sol menü beyaz zeminli, ayrı kenarlıklı ve gölgeli kartlar; seçili kart mavi.
-- Sol menü sırası: Donanım → Yazıcı/Barkod/Tarayıcı → İnternet → Israrlı Araştırma → Bilgisayar Geçmişi → Windows Onarım → AI → Özet/Teslim → Güncelleme Tarihçesi. Araştırmaya yönlendiren düğmeler yeni sıra için düzeltildi.
-- Tablo sütun başlığı altında belirgin ayırıcı çizgi.
-- Mevcut cihaz onayı, yedek, AI, geçmiş, özet ve güncelleme kodu korunur. Fiziksel cihaz işlev testleri bu görsel düzenlemede tekrarlanmadı.
+- Tüm WPF seçim kutuları, düzenlenebilir AI model alanı dahil ortak yuvarlatılmış/gölgeli tasarım; açılır listeler, bağlam menüleri ve seçenek açma alanı uyumlu görünümde.
+- Simgeli sol menü: Donanım → Yazıcı/Barkod/Tarayıcı → İnternet; devamında Geçmiş, AI, Özet/Teslim, Gelişmiş Araçlar, Güncelleme Tarihçesi.
+- Israrlı Araştırma ve Windows Onarım ayrı sol menü başlıklarından çıkarıldı; işlevler Gelişmiş Araçlar pencerelerinde korunur. Kur ve Onar içindeki otomatik araştırma sürer.
+- İnternet Bağlantısını Düzelt: önce bağlantı kontrolü, çalışıyorsa ayar değiştirmeme; uygun yöntemleri onayla sırayla deneme; sorun sürüyorsa IP/VPN/proxy etkileri için ayrı onaylı ek yöntemler. Her adım sonrası bağlantı kontrolü, başarıda durma, iptal/belirsizlik/yeniden başlatma beklerken yeni riskli aşamaya geçmeme.
+- Tara sırasında bağlantı/IP/ağ geçidi/ping/DNS/HTTP kontrolleri. Sorun bulunursa onarım akışına geçmek için izin sorulur; tarama sonuçları silinmez. Kablo veya servis sağlayıcı arızası kesin ilan edilmez.
+- Normal açıklama ve teknik çıktı ayrıldı. Komut/hata çıktısı Teknik Bilgi'de korunur; normal açıklama yapılan adımı, sonucu ve sonraki kontrolü anlatır.
 
-Yeni EXE/ZIP Defender ve Windows açılış kontrolüyle; filtre/açılır menü ve menü sırası UI Automation ile sınanır. Yayın ancak kontroller geçerse açılır. İmzasız uygulama için SmartScreen uyarısı görülebilir; virüs tespitinde korumayı kapatmayın veya istisna eklemeyin.
+Dokuz yeni benzetimli kontrol geçti. Gerçek kablo/Wi-Fi arızası ve donanım onarımı denenmedi. Yeni EXE/ZIP için Windows Defender, açılış/kapanış ve seçili arayüz etkileşimleri yayın kapısıdır. Önceki benzetim/donanım testleri tekrarlanmadı. Windows'un kendi UAC/üretici izin pencereleri uygulama temasıyla değişmez. Tam TWAIN/faks ve her marka/model otomasyonu hâlâ sınırlı. Virüs uyarısında korumayı kapatmayın. EXE kod imzalı değildir.
