@@ -1,8 +1,8 @@
-Teknik Servis PRO 1.7.6
+Teknik Servis PRO 1.7.7
 
-- İnternet indirme ölçümü için renkli yarım daire ibre ve sayısal Mbps sonucu.
-- Sabit uygulama ölçeği: 0–5 çok düşük; 5–25 düşük; 25–50 orta; 50–100 iyi; 100 Mbps ve üzeri çok iyi. İbrenin üst sınırı 250+ Mbps.
-- Tarife şartına bağlanan yorum yerine ölçülen değere göre net, kısa açıklama.
-- Eksik/başarısız ölçümde ibre ve hız puanı yok; yeni ölçüm başlarken eski değer temizlenir.
-- Ölçülen internet indirmesi, Ethernet/Wi-Fi bağlantı hızından ayrıdır. Arıza, upload veya gecikme sonucu çıkarılmaz. 10 MB/25 saniye sınırı korunur.
-- Data/Drivers ve mevcut işlevler korunur. EXE imzasızdır; SmartScreen uyarısı sürebilir.
+- Başlık altında iki sütun ve iki satırda hizalı bilgisayar/lisans bilgileri.
+- Bilgisayar adı ve işletim sistemi ayrı alanlarda; lisans durumu ayrı, Kalan süre = ... ayrı alanda.
+- Açılışta bilgisayar adı ve Windows sürüm bilgisi görünür; tarama sonrası bulunan sistem adı güncellenir.
+- Okunamayan süre Bilinmiyor; bitiş bildirilmediyse Süre sınırı bildirilmedi. Tahmini veya kanıtsız Süresiz bilgisi üretilmez.
+- Uzun değerlerin tamamı üzerine gelince okunur. İnternet hız ibresi ve önceki özellikler korunur.
+- Data/Drivers korunmalıdır. EXE imzasızdır; SmartScreen uyarısı sürebilir.
