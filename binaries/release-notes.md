@@ -1,9 +1,8 @@
-Teknik Servis PRO 1.7.5
+Teknik Servis PRO 1.7.6
 
-- Kullanıcının gönderdiği mavi logo uygulamanın yeni simgesi oldu.
-- EXE dosyası, ana pencere ve ortak açılır pencerelerde aynı simge kullanılır.
-- Ana ekranın üst kısmında başlığın yanında beyaz, yuvarlatılmış logo alanı eklendi.
-- Özgün PNG aynen korunur; simge farklı Windows boyutlarını destekler. Logo dosyaları EXE içine gömülüdür, yan dosya gerekmez.
-- Mevcut işlevler, geçmiş ve sürücü arşivi korunur. Data ve Drivers klasörlerini silmeyin.
-
-Bu sürüm görsel güncellemedir. Önceki fiziksel cihaz testleri tekrarlanmadı. İmzasız EXE için SmartScreen uyarısı sürebilir; logo kod imzası yerine geçmez. Gerçek virüs tespitinde korumayı kapatmayın veya istisna eklemeyin.
+- İnternet indirme ölçümü için renkli yarım daire ibre ve sayısal Mbps sonucu.
+- Sabit uygulama ölçeği: 0–5 çok düşük; 5–25 düşük; 25–50 orta; 50–100 iyi; 100 Mbps ve üzeri çok iyi. İbrenin üst sınırı 250+ Mbps.
+- Tarife şartına bağlanan yorum yerine ölçülen değere göre net, kısa açıklama.
+- Eksik/başarısız ölçümde ibre ve hız puanı yok; yeni ölçüm başlarken eski değer temizlenir.
+- Ölçülen internet indirmesi, Ethernet/Wi-Fi bağlantı hızından ayrıdır. Arıza, upload veya gecikme sonucu çıkarılmaz. 10 MB/25 saniye sınırı korunur.
+- Data/Drivers ve mevcut işlevler korunur. EXE imzasızdır; SmartScreen uyarısı sürebilir.
