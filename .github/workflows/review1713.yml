@@ -95,39 +95,29 @@ jobs:
             $detail=FindWindow 'Seçili bilgisayarın servis geçmişi'
             $rename=ById $detail 'OpenComputerRename';if(!$rename -or !$rename.Current.IsEnabled){throw 'Rename button unavailable for current computer'}
             ([Windows.Automation.InvokePattern]$rename.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern)).Invoke()
-            $native=$null
-            for($i=0;$i -lt 40;$i++){$native=FindNamed ([Windows.Automation.AutomationElement]::RootElement) 'System Properties' ([Windows.Automation.ControlType]::Window);if($native){break};Start-Sleep -Milliseconds 250}
-            if(!$native){throw 'Windows computer name screen did not open'}
+            Add-Type 'using System; using System.Text; using System.Collections.Generic; using System.Runtime.InteropServices; public static class NativeRenameProbe { public delegate bool Callback(IntPtr w,IntPtr p); [DllImport("user32.dll")] static extern bool EnumWindows(Callback c,IntPtr p); [DllImport("user32.dll")] static extern bool EnumChildWindows(IntPtr w,Callback c,IntPtr p); [DllImport("user32.dll",CharSet=CharSet.Unicode)] static extern int GetClassName(IntPtr w,StringBuilder b,int n); [DllImport("user32.dll",CharSet=CharSet.Unicode)] static extern IntPtr SendMessage(IntPtr w,uint m,IntPtr p,StringBuilder text); [DllImport("user32.dll")] public static extern IntPtr SendMessage(IntPtr w,uint m,IntPtr p,IntPtr l); [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr w); [DllImport("user32.dll")] public static extern bool IsWindowEnabled(IntPtr w); [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr w,uint m,IntPtr p,IntPtr l); [DllImport("user32.dll")] public static extern int GetWindowLong(IntPtr w,int index); public class Item {public IntPtr Handle;public string Name="";public string Class="";} static Item Read(IntPtr w){var b=new StringBuilder(2048);SendMessage(w,13,(IntPtr)2048,b);var c=new StringBuilder(128);GetClassName(w,c,128);return new Item{Handle=w,Name=b.ToString(),Class=c.ToString()};} public static Item[] Windows(){var a=new List<Item>();EnumWindows((w,p)=>{if(IsWindowVisible(w))a.Add(Read(w));return true;},IntPtr.Zero);return a.ToArray();} public static Item[] Children(IntPtr w){var a=new List<Item>();EnumChildWindows(w,(x,p)=>{a.Add(Read(x));return true;},IntPtr.Zero);return a.ToArray();} }'
+            $nativeHandle=[IntPtr]::Zero;$changeHandle=[IntPtr]::Zero
+            for($i=0;$i -lt 80;$i++){
+              foreach($win in ([NativeRenameProbe]::Windows()|Where-Object{$_.Name -eq 'System Properties'})){
+                $children=[NativeRenameProbe]::Children($win.Handle)
+                if(@($children|Where-Object{$_.Name -like '*temporary paging file*'}).Count){[NativeRenameProbe]::PostMessage($win.Handle,0x0111,[IntPtr]1,[IntPtr]::Zero)|Out-Null;continue}
+                [NativeRenameProbe]::SendMessage($win.Handle,0x0465,[IntPtr]::Zero,[IntPtr]::Zero)|Out-Null
+                $button=[NativeRenameProbe]::Children($win.Handle)|Where-Object{$_.Class -eq 'Button' -and $_.Name.Replace('&','') -like 'Change*' -and [NativeRenameProbe]::IsWindowVisible($_.Handle) -and [NativeRenameProbe]::IsWindowEnabled($_.Handle)}|Select-Object -First 1
+                if($button){$nativeHandle=$win.Handle;$changeHandle=$button.Handle;break}
+              }
+              if($changeHandle -ne [IntPtr]::Zero){break};Start-Sleep -Milliseconds 250
+            }
+            if($changeHandle -eq [IntPtr]::Zero){$result.nativeWindowTitles=@([NativeRenameProbe]::Windows()|ForEach-Object{$_.Name});throw 'Windows Change control not available'}
             $result.windowsRenameScreenOpened=$true
-            Add-Type 'using System; using System.Text; using System.Runtime.InteropServices; public static class NativeNameTest { [DllImport("user32.dll",CharSet=CharSet.Unicode)] public static extern IntPtr SendMessage(IntPtr window,uint message,IntPtr param,StringBuilder value); [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr window); }'
-            function NativeClick($parent,[string]$name){$control=$parent.FindAll($scope,[Windows.Automation.Condition]::TrueCondition)|Where-Object{$_.Current.Name.Replace('&','') -eq $name -and $_.Current.NativeWindowHandle -ne 0}|Select-Object -First 1;if(!$control){throw "Native button missing: $name"};[NoticeCloser]::PostMessage([IntPtr]$control.Current.NativeWindowHandle,0x00F5,[IntPtr]::Zero,[IntPtr]::Zero)|Out-Null}
-            Start-Sleep -Milliseconds 600
-            $tabs=$native.FindAll($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::TabItem))
-            $computerTab=$tabs|Where-Object{$_.Current.Name -like '*Computer*Name*'}|Select-Object -First 1
-            if($computerTab){([Windows.Automation.SelectionItemPattern]$computerTab.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern)).Select();Start-Sleep -Milliseconds 500}
-            $change=$null
-            for($i=0;$i -lt 40;$i++){
-              $change=$native.FindAll($scope,[Windows.Automation.Condition]::TrueCondition)|Where-Object{$_.Current.Name.Replace('&','') -like 'Change*' -and $_.Current.NativeWindowHandle -ne 0}|Select-Object -First 1
-              if($change){break};Start-Sleep -Milliseconds 250
-            }
-            $result.nativeControls=@($native.FindAll($scope,[Windows.Automation.Condition]::TrueCondition)|ForEach-Object{$_.Current.ControlType.ProgrammaticName+': '+$_.Current.Name})
-            if(!$change){throw 'Windows Change button missing'}
-            [NativeNameTest]::SetForegroundWindow([IntPtr]$native.Current.NativeWindowHandle)|Out-Null
-            [NoticeCloser]::PostMessage([IntPtr]$change.Current.NativeWindowHandle,0x00F5,[IntPtr]::Zero,[IntPtr]::Zero)|Out-Null;Start-Sleep -Milliseconds 300
-            $nameDialog=$null
-            for($i=0;$i -lt 40;$i++){$nameDialog=FindNamed ([Windows.Automation.AutomationElement]::RootElement) 'Computer Name/Domain Changes' ([Windows.Automation.ControlType]::Window);if($nameDialog){break};Start-Sleep -Milliseconds 250}
-            if(!$nameDialog){throw 'Computer name input dialog missing'}
-            $inputs=$nameDialog.FindAll($scope,[Windows.Automation.Condition]::TrueCondition)|Where-Object{$_.Current.ClassName -eq 'Edit' -and $_.Current.NativeWindowHandle -ne 0}
-            $found=$false
-            foreach($input in $inputs){
-              $text=[Text.StringBuilder]::new(512);[NativeNameTest]::SendMessage([IntPtr]$input.Current.NativeWindowHandle,0x000D,[IntPtr]512,$text)|Out-Null
-              $style=[NoticeCloser]::GetWindowLong([IntPtr]$input.Current.NativeWindowHandle,-16)
-              if(($style -band 0x0800) -eq 0 -and $text.ToString() -eq $env:COMPUTERNAME){$found=$true}
-            }
-            if(!$found){throw 'Editable Windows computer name field missing'}
+            [NativeRenameProbe]::PostMessage($changeHandle,0x00F5,[IntPtr]::Zero,[IntPtr]::Zero)|Out-Null
+            $nameHandle=[IntPtr]::Zero
+            for($i=0;$i -lt 40;$i++){$dialog=[NativeRenameProbe]::Windows()|Where-Object{$_.Name -eq 'Computer Name/Domain Changes'}|Select-Object -First 1;if($dialog){$nameHandle=$dialog.Handle;break};Start-Sleep -Milliseconds 250}
+            if($nameHandle -eq [IntPtr]::Zero){throw 'Windows name input screen did not open'}
+            $nameInput=[NativeRenameProbe]::Children($nameHandle)|Where-Object{$_.Class -eq 'Edit' -and $_.Name -eq $env:COMPUTERNAME -and ([NativeRenameProbe]::GetWindowLong($_.Handle,-16) -band 0x0800) -eq 0}|Select-Object -First 1
+            if(!$nameInput){$result.nameControls=@([NativeRenameProbe]::Children($nameHandle)|ForEach-Object{$_.Class+': '+$_.Name});throw 'Editable computer name field not found'}
             $result.editableNameFieldVerified=$true
-            NativeClick $nameDialog 'Cancel';Start-Sleep -Milliseconds 250
-            NativeClick $native 'Cancel';Start-Sleep -Milliseconds 250
+            [NativeRenameProbe]::PostMessage($nameHandle,0x0111,[IntPtr]2,[IntPtr]::Zero)|Out-Null;Start-Sleep -Milliseconds 400
+            [NativeRenameProbe]::PostMessage($nativeHandle,0x0111,[IntPtr]2,[IntPtr]::Zero)|Out-Null;Start-Sleep -Milliseconds 400
             $after=(Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName').ComputerName
             if($after -ne $before){throw 'Native test unexpectedly changed pending computer name'}
             $result.cancelLeavesNameUnchanged=$true
