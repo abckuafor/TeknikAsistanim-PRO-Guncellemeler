@@ -12,7 +12,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Scan new EXE and ZIP, verify modern dialogs
+      - name: Scan exact EXE and ZIP, verify unified status window
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -107,6 +107,8 @@ jobs:
             if((ById $statusWindow 'OperationState').Current.Name -eq 'İşlem devam ediyor'){throw 'Read-only operation did not finish within bounded UI check'}
             if((FindWindow 'İşlem Durumu').Current.NativeWindowHandle -ne $liveHandle){throw 'Completed result replaced the progress window'}
             $result.completedResultInSameWindow=$true
+            if((ById $statusWindow 'OperationStatusExplanation').Current.Name -like '*başlatılıyor*'){throw 'Completed window retained stale starting text'}
+            $result.staleStartingTextCleared=$true
             if((ById $statusWindow 'PlainOperationCounts').Current.Name -notlike '*adım*'){throw 'Plain step counts missing after operation'}
             if(!(ById $statusWindow 'UnifiedProgress').Current.IsOffscreen){throw 'Busy progress remained visible after completion'}
             $result.completedProgressHidden=$true
