@@ -1,0 +1,63 @@
+name: Windows Defender review
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/security-review.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  defender:
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify original image and run Microsoft Defender (do not execute application)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $report = Join-Path $env:RUNNER_TEMP 'security-review'
+          New-Item -ItemType Directory -Path $report -Force | Out-Null
+          $result = [ordered]@{ scannedAtUtc=[DateTime]::UtcNow.ToString('o'); applicationExecuted=$false; verdict='NOT_SCANNED'; expectedSha256='0e670b0bb5b4b9828a5f7bb145ab207fb404e125224c6d17a16945bebe8e6917'; errors=@() }
+          try {
+            Get-ComputerInfo | Select-Object WindowsProductName,WindowsVersion,OsBuildNumber | ConvertTo-Json | Set-Content "$report/os.json"
+            Get-Service WinDefend -ErrorAction Stop | Format-List * | Out-File "$report/service.txt"
+            if ((Get-Service WinDefend).Status -ne 'Running') { Start-Service WinDefend -ErrorAction Stop }
+            Update-MpSignature -ErrorAction Stop
+            $status = Get-MpComputerStatus -ErrorAction Stop
+            $status | ConvertTo-Json -Depth 6 | Set-Content "$report/defender-status.json"
+            if (!$status.AMServiceEnabled -or !$status.AntivirusSignatureVersion -or $status.AntivirusSignatureLastUpdated -lt (Get-Date).AddDays(-3)) { throw 'Defender engine or fresh signatures unavailable.' }
+            $target = Join-Path $report 'TeknikServis_PRO.exe'
+            $stream = [IO.File]::Create($target)
+            try { Get-ChildItem 'binaries/parts/*.part' | Sort-Object Name | ForEach-Object { $inputStream=[IO.File]::OpenRead($_.FullName); try { $inputStream.CopyTo($stream) } finally { $inputStream.Dispose() } } } finally { $stream.Dispose() }
+            $result.actualSha256 = (Get-FileHash $target -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($result.actualSha256 -ne $result.expectedSha256) { throw 'Original image SHA256 mismatch.' }
+            $engine = Get-ChildItem "$env:ProgramData/Microsoft/Windows Defender/Platform/*/MpCmdRun.exe" -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1
+            $mp = if ($engine) { $engine.FullName } else { "$env:ProgramFiles/Windows Defender/MpCmdRun.exe" }
+            if (!(Test-Path $mp)) { throw 'MpCmdRun.exe missing.' }
+            & $mp -Scan -ScanType 3 -File $target -DisableRemediation 2>&1 | Tee-Object "$report/scan-exe.txt"
+            $result.exeScanExitCode = $LASTEXITCODE
+            if ($LASTEXITCODE -ne 0) { $result.verdict='DETECTED_OR_SCAN_ERROR'; throw 'EXE scan did not return success.' }
+            $zip = Join-Path $report 'TeknikServis_PRO_1.5.3_EXE.zip'
+            Compress-Archive -Path $target -DestinationPath $zip
+            & $mp -Scan -ScanType 3 -File $zip -DisableRemediation 2>&1 | Tee-Object "$report/scan-zip.txt"
+            $result.zipScanExitCode = $LASTEXITCODE
+            if ($LASTEXITCODE -ne 0) { $result.verdict='DETECTED_OR_SCAN_ERROR'; throw 'ZIP scan did not return success.' }
+            $result.verdict='NO_DETECTION_IN_THIS_ENVIRONMENT'
+          } catch {
+            $result.errors += $_.Exception.Message
+            Write-Host "Review incomplete: $($_.Exception.Message)"
+          } finally {
+            try { Get-MpThreatDetection | ConvertTo-Json -Depth 8 | Set-Content "$report/threat-detections.json" } catch { $_ | Out-File "$report/threat-query-error.txt" }
+            try { Get-WinEvent -FilterHashtable @{LogName='Microsoft-Windows-Windows Defender/Operational'; StartTime=(Get-Date).AddMinutes(-20)} -MaxEvents 40 | Select-Object TimeCreated,Id,Message | ConvertTo-Json -Depth 5 | Set-Content "$report/defender-events.json" } catch { $_ | Out-File "$report/event-query-error.txt" }
+            $result | ConvertTo-Json -Depth 8 | Set-Content "$report/result.json"
+            $result | ConvertTo-Json -Depth 8 | Write-Host
+            Remove-Item "$report/*.exe","$report/*.zip" -Force -ErrorAction SilentlyContinue
+          }
+          if ($result.verdict -ne 'NO_DETECTION_IN_THIS_ENVIRONMENT') { exit 1 }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: defender-review-original-1.5.3
+          path: ${{ runner.temp }}/security-review
+          retention-days: 14
