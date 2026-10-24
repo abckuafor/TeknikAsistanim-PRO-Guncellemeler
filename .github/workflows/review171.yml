@@ -107,7 +107,9 @@ jobs:
             if(!$repair){throw 'Advanced repair dialog missing'}
             $result.advancedRepairWindow=$true;Click (FindName $repair 'Kapat')
 
-            $app.Refresh();[void]$app.CloseMainWindow()
+            $app.Refresh();$result.mainWindowEnabled=$root.Current.IsEnabled
+            if(!$root.Current.IsEnabled){throw 'Main window remained disabled after dialogs'}
+            if(![NoticeCloser]::PostMessage([IntPtr]$root.Current.NativeWindowHandle,0x0010,[IntPtr]::Zero,[IntPtr]::Zero)){throw 'Main window close request failed'}
             if (!$app.WaitForExit(10000)) {
               $windows=[Windows.Automation.AutomationElement]::RootElement.FindAll([Windows.Automation.TreeScope]::Children,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ProcessIdProperty,$app.Id))
               $result.remainingWindows=@($windows|ForEach-Object {$_.Current.Name})
