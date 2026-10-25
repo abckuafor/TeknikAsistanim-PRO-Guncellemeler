@@ -1,3 +1,4 @@
+# Purpose-specific settings only; no repeated source picker in restore password step.
 # Settings collapse by default to give profiles the full available height.
 # Full-width list with draggable split and larger default list area.
 name: Review and publish 1.10.5
