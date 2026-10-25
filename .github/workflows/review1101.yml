@@ -139,6 +139,8 @@ jobs:
             $cell=(GridPattern).GetItem(7,0);$one=$cell.FindFirst($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::CheckBox));if(!$one){throw 'Nonvirtual single source checkbox missing'}
             ([Windows.Automation.TogglePattern]$one.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle();if(([Windows.Automation.TogglePattern](ById $root 'SelectAll_FormatSources').GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Current.ToggleState -ne [Windows.Automation.ToggleState]::Off){throw 'Single source uncheck failed'}
             ([Windows.Automation.TogglePattern]$one.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle()
+            Click $root 'Ek Kaynağı Listeden Kaldır';Start-Sleep -Milliseconds 200;if((GridPattern).Current.RowCount -ne $initialRows -or !(Test-Path $file)){throw 'Header remove did not preserve source file'}
+            Click $root 'Dosya Ekle…';$picker=FindWindow 'Yedeğe eklenecek dosyalar';NativePath $picker $file 'Open'
             $target=Join-Path $fixtures 'backups';$restore=Join-Path $fixtures 'new-user';$empty=Join-Path $fixtures 'empty';New-Item -ItemType Directory $target,$restore,$empty -Force|Out-Null
             $result.phase='choose targets'
             Click $root 'Hedef Seç…';$picker=FindWindow 'Formatlanmayacak harici disk / yedek hedefi seçin';NativePath $picker $target 'Select Folder'
@@ -150,6 +152,7 @@ jobs:
             $result.phase='invalid target and preflight'
             SetValueById 'FormatTargetPath' (Join-Path $fixtures 'missing-target');Click $root 'Ön Kontrol';WaitWork $true
             SetValueById 'FormatTargetPath' $target
+            $exclusions=FindNamed $root 'Hariç tutulacak klasör / dosya yolları' ([Windows.Automation.ControlType]::Group);if(!$exclusions){throw 'Exclusion expander missing'};([Windows.Automation.ExpandCollapsePattern]$exclusions.GetCurrentPattern([Windows.Automation.ExpandCollapsePattern]::Pattern)).Expand();Start-Sleep -Milliseconds 200
             SetValueById 'FormatExclusions' $file;Click $root 'Ön Kontrol';WaitWork
             if(!(ById $root 'FormatExplanation').Current.Name.Contains('0 dosya')){throw 'Exclusion did not apply in preflight'}
             SetValueById 'FormatExclusions' '';Click $root 'Ön Kontrol';WaitWork
@@ -172,10 +175,10 @@ jobs:
             ([Windows.Automation.TogglePattern]$keep.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle();Click $root 'Seçili Yedeği Geri Yükle';$confirm=FindWindow 'İşlem onayı';Click $confirm 'Devam Et';WaitWork
             if(!(Get-ChildItem $restore -Filter '*Yedek*' -Recurse|Where-Object {!$_.PSIsContainer}) -or [IO.File]::ReadAllText($restored.FullName) -ne 'existing fixture must survive'){throw 'KeepBoth conflict restore failed'}
             $result.phase='cancel backup'
-            $large=Join-Path $fixtures 'cancel-fixture.bin';$stream=[IO.File]::Create($large);try{$stream.SetLength(268435456)}finally{$stream.Dispose()}
+            $large=Join-Path $fixtures 'cancel-fixture.bin';$stream=[IO.File]::Create($large);try{$stream.SetLength(1073741824)}finally{$stream.Dispose()}
             Click $root 'Dosya Ekle…';$picker=FindWindow 'Yedeğe eklenecek dosyalar';NativePath $picker $large 'Open'
             Click $root 'Seçilenleri Yedekle';$confirm=FindWindow 'İşlem onayı';Click $confirm 'Devam Et';Start-Sleep -Milliseconds 100;Click $root 'Yedekleme / Geri Yüklemeyi Durdur';WaitWork
-            if(!(ById $root 'FormatExplanation').Current.Name.Contains('iptal') -or (Get-Item $large).Length -ne 268435456){throw 'Backup cancel failed or source changed'}
+            if(!(ById $root 'FormatExplanation').Current.Name.Contains('iptal') -or (Get-Item $large).Length -ne 1073741824){throw 'Backup cancel failed or source changed'}
             $result.phase='invalid catalog'
             $invalid=Join-Path $fixtures 'invalid-backup';New-Item -ItemType Directory $invalid -Force|Out-Null;[IO.File]::WriteAllText((Join-Path $invalid 'manifest.json'),'invalid synthetic manifest')
             Click $root 'Bu Bilgisayarın Yedeklerini Bul';$picker=FindWindow 'Yedeklerin bulunduğu klasörü seçin';NativePath $picker $invalid 'Select Folder' $true;WaitWork $true
@@ -184,6 +187,7 @@ jobs:
             $result.formatControls=[ordered]@{addFolder=$true;addFile=$true;pickBackupTarget=$true;pickRestoreTarget=$true;removeSourceWithoutDeletion=$true;selectAndUnselectAll=$true;exclusions=$true;preflight=$true;emptyCatalog=$true;findCompletedBackup=$true;backupIntegrity=$true;restoreNewUser=$true;skipConflict=$true;keepBothConflict=$true;cancelBackupPreservesSource=$true;invalidTarget=$true;inaccessibleTarget=$true;invalidManifest=$true;noSelection=$true;refreshFolders=$true}
             Screenshot $root 'after-format.png'
             SelectTab 'Arama Motoru Yedekleme';Click $root 'Paket Dosyasını Seç…';$picker=FindWindow 'Tek şifreli tarayıcı paketini kaydet';Start-Sleep -Seconds 1;AssertNoProgress;CancelNative $picker 'Cancel'
+            $result.phase='unified browser backup'
             $chromeRoot=Join-Path $env:LOCALAPPDATA 'Google/Chrome/User Data';$profile=Join-Path $chromeRoot 'Default';New-Item -ItemType Directory $profile -Force|Out-Null
             $book=Join-Path $profile 'Bookmarks';$bookJson='{"version":1,"roots":{"bookmark_bar":{"type":"folder","name":"Bookmarks","children":[{"type":"url","name":"Fixture","url":"https://example.invalid"}]}}}'
             [IO.File]::WriteAllText($book,$bookJson);[IO.File]::WriteAllText((Join-Path $chromeRoot 'Last Version'),'131.0.0.0')
@@ -200,6 +204,7 @@ jobs:
             WizardConsent;if(!(ById $root 'BrowserBackupSave').Current.IsEnabled){throw 'Eight character ready wizard not enabled'}
             Click $root 'Onayla ve Yedekle';WaitWork
             if(!(Test-Path $package) -or [IO.File]::ReadAllText($package).Contains('not-a-real-secret') -or !(ById $root 'BrowserWizardStatus').Current.Name.Contains('2 veri dosyası')){throw 'Unified encrypted bookmark/password package was not produced'}
+            $result.phase='unified browser restore'
             [IO.File]::WriteAllText($book,$bookJson.Replace('Fixture','Current'))
             $mode=ById $root 'BrowserWizardMode';([Windows.Automation.ExpandCollapsePattern]$mode.GetCurrentPattern([Windows.Automation.ExpandCollapsePattern]::Pattern)).Expand();Start-Sleep -Milliseconds 150
             $restoreMode=FindNamed ([Windows.Automation.AutomationElement]::RootElement) 'Geri Yükle' ([Windows.Automation.ControlType]::ListItem);if(!$restoreMode){throw 'Restore mode missing'};([Windows.Automation.SelectionItemPattern]$restoreMode.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern)).Select()
@@ -295,3 +300,5 @@ jobs:
 # Product source grids expose stable realized rows; verify single business checkbox too.
 
 # Unified browser workflow: synthetic official export, eight-character minimum, single encrypted package, plan and exact restore.
+
+# Open exclusion UI before use; exercise header remove and robust sparse-source cancellation.
