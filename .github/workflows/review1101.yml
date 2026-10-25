@@ -1,0 +1,241 @@
+name: Review and publish 1.10.1
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/review1101.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  review:
+    runs-on: windows-2025
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan exact EXE and ZIP, verify unified status window
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference='Stop'
+          $dir=Join-Path $env:RUNNER_TEMP 'exact-archive-review'
+          New-Item -ItemType Directory $dir -Force | Out-Null
+          $result=[ordered]@{verdict='NOT_SCANNED'; errors=@(); exeExecuted=$false; startupVerified=$false}
+          $app=$null
+          try {
+            if ((Get-Service WinDefend).Status -ne 'Running') { Start-Service WinDefend -ErrorAction Stop }
+            Update-MpSignature -ErrorAction Stop
+            $status=Get-MpComputerStatus
+            $result.defenderVersion=$status.AMProductVersion
+            $result.signatureVersion=$status.AntivirusSignatureVersion
+            $result.signatureUpdatedUtc=$status.AntivirusSignatureLastUpdated.ToUniversalTime().ToString('o')
+            if (!$status.AMServiceEnabled -or $status.AntivirusSignatureLastUpdated -lt (Get-Date).AddDays(-3)) { throw 'Defender or current signatures unavailable' }
+            $folder=Join-Path $dir 'application'; New-Item -ItemType Directory $folder -Force | Out-Null
+            New-Item -ItemType Directory (Join-Path $folder 'Data'),(Join-Path $folder 'Drivers') -Force|Out-Null
+            [IO.File]::WriteAllText((Join-Path $folder 'Data/fixture-preserve.txt'),'synthetic-keep-data')
+            [IO.File]::WriteAllText((Join-Path $folder 'Drivers/fixture-preserve.txt'),'synthetic-keep-drivers')
+            $exe=Join-Path $folder 'TeknikServis_PRO.exe'
+            $stream=[IO.File]::Create($exe)
+            try { Get-ChildItem 'binaries/parts/*.part' | Sort-Object Name | ForEach-Object { $f=[IO.File]::OpenRead($_.FullName);try{$f.CopyTo($stream)}finally{$f.Dispose()} } } finally { $stream.Dispose() }
+            $expected=((Get-Content 'binaries/SHA256.txt') -split ' ')[0].ToLowerInvariant()
+            $result.exeSha256=(Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+            if($result.exeSha256 -ne $expected){throw 'EXE hash mismatch'}
+            $zip=Join-Path $dir 'TeknikServis_PRO_1.10.1_EXE.zip'
+            Compress-Archive $exe $zip
+            $result.zipSha256=(Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+            $engine=Get-ChildItem "$env:ProgramData/Microsoft/Windows Defender/Platform/*/MpCmdRun.exe" | Sort-Object FullName -Descending | Select-Object -First 1
+            & $engine.FullName -Scan -ScanType 3 -File $exe -DisableRemediation 2>&1 | Tee-Object "$dir/scan-exe.txt"
+            $result.exeScanExitCode=$LASTEXITCODE
+            if($LASTEXITCODE -ne 0){throw 'EXE scan did not succeed'}
+            & $engine.FullName -Scan -ScanType 3 -File $zip -DisableRemediation 2>&1 | Tee-Object "$dir/scan-original-zip.txt"
+            $result.scanExitCode=$LASTEXITCODE
+            if ($LASTEXITCODE -ne 0) { $result.verdict='DETECTED_OR_SCAN_ERROR'; throw 'Original archive scan did not succeed' }
+            $result.verdict='NO_DETECTION_IN_THIS_ENVIRONMENT'
+            $app=Start-Process $exe -WorkingDirectory $folder -PassThru
+            $result.exeExecuted=$true
+            for ($i=0;$i -lt 30;$i++) {
+              Start-Sleep -Seconds 1; $app.Refresh()
+              if ($app.HasExited) { throw "Application exited before startup verification: $($app.ExitCode)" }
+              if ($app.MainWindowHandle -ne 0 -and $app.MainWindowTitle -like 'Teknik Servis PRO 1.10.1*') { $result.startupVerified=$true; $result.windowTitle=$app.MainWindowTitle; break }
+            }
+            if (!$result.startupVerified) { throw "Main WPF window not verified: $($app.MainWindowTitle)" }
+            Add-Type -AssemblyName UIAutomationClient
+            Add-Type -AssemblyName UIAutomationTypes
+            Add-Type 'using System; using System.Runtime.InteropServices; public static class NoticeCloser { [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr window,uint message,IntPtr wParam,IntPtr lParam); [DllImport("user32.dll")] public static extern IntPtr GetWindow(IntPtr h,uint cmd); [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h); [DllImport("user32.dll")] public static extern int GetWindowLong(IntPtr window,int index); }'
+            $scope=[Windows.Automation.TreeScope]::Descendants
+            function FindNamed($parent,[string]$name,$kind) {
+              $c=[Windows.Automation.AndCondition]::new([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::NameProperty,$name),[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,$kind))
+              return $parent.FindFirst($scope,$c)
+            }
+            function FindWindow([string]$name) {
+              $c=[Windows.Automation.AndCondition]::new([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::NameProperty,$name),[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::Window),[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ProcessIdProperty,$app.Id))
+              for($j=0;$j -lt 120;$j++){$found=[Windows.Automation.AutomationElement]::RootElement.FindFirst($scope,$c);if($found){return $found};Start-Sleep -Milliseconds 250}
+              throw "Dialog not found: $name"
+            }
+            function Click($parent,[string]$name) {
+              $b=FindNamed $parent $name ([Windows.Automation.ControlType]::Button)
+              if(!$b){throw "Button missing: $name"}
+              ([Windows.Automation.InvokePattern]$b.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern)).Invoke()
+            }
+            function CheckModern($window) {
+              $close=$window.FindFirst($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty,'DialogClose'))
+              if(!$close){throw 'Custom dialog close control missing'}
+              $style=[NoticeCloser]::GetWindowLong([IntPtr]$window.Current.NativeWindowHandle,-16)
+              $result.customChromeVerified=$true
+            }
+            $root=[Windows.Automation.AutomationElement]::FromHandle($app.MainWindowHandle)
+            function ById($parent,[string]$id){return $parent.FindFirst($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty,$id))}
+            Add-Type -AssemblyName System.Drawing
+            function Screenshot($window,[string]$name) {
+              $bounds=$window.Current.BoundingRectangle
+              $image=[Drawing.Bitmap]::new([int]$bounds.Width,[int]$bounds.Height);$graphics=[Drawing.Graphics]::FromImage($image);$graphics.CopyFromScreen([int]$bounds.X,[int]$bounds.Y,0,0,$image.Size)
+              $image.Save((Join-Path $dir $name),[Drawing.Imaging.ImageFormat]::Png);$graphics.Dispose();$image.Dispose()
+            }
+            function CloseWindow($window){[NoticeCloser]::PostMessage([IntPtr]$window.Current.NativeWindowHandle,0x0010,[IntPtr]::Zero,[IntPtr]::Zero)|Out-Null;Start-Sleep -Milliseconds 300}
+            function WaitDone($window){for($j=0;$j -lt 480;$j++){if((ById $window 'OperationState').Current.Name -and (ById $window 'OperationState').Current.Name -ne 'İşlem devam ediyor'){return};Start-Sleep -Milliseconds 250};throw 'Bounded read-only operation did not finish'}
+            Add-Type -AssemblyName System.Windows.Forms
+            function SelectTab([string]$name){$tab=FindNamed $root $name ([Windows.Automation.ControlType]::TabItem);if(!$tab){throw "Tab missing: $name"};([Windows.Automation.SelectionItemPattern]$tab.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern)).Select();Start-Sleep -Milliseconds 250}
+            function ProcessWindows{ return [Windows.Automation.AutomationElement]::RootElement.FindAll($scope,[Windows.Automation.AndCondition]::new([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ProcessIdProperty,$app.Id),[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::Window))) }
+            function AssertNoProgress{if((ProcessWindows|Where-Object {$_.Current.Name -eq 'İşlem Durumu'}).Count){throw 'Picker spawned operation/progress window'}}
+            function CancelNative($picker,[string]$method){if($method -eq 'Esc'){[NoticeCloser]::SetForegroundWindow([IntPtr]$picker.Current.NativeWindowHandle)|Out-Null;[Windows.Forms.SendKeys]::SendWait('{ESC}')}elseif($method -eq 'Cancel'){$button=FindNamed $picker 'Cancel' ([Windows.Automation.ControlType]::Button);if(!$button){$button=FindNamed $picker 'İptal' ([Windows.Automation.ControlType]::Button)};if(!$button){throw 'Native Cancel missing'};([Windows.Automation.InvokePattern]$button.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern)).Invoke()}else{CloseWindow $picker};Start-Sleep -Milliseconds 500;if(!$root.Current.IsEnabled){throw 'Main owner remained disabled after picker closed'};AssertNoProgress}
+            function NativePath($picker,[string]$path,[string]$buttonName,[bool]$allowWork=$false){$edits=$picker.FindAll($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::Edit));$field=$edits|Where-Object {$_.Current.Name -match '^(File name|Folder|Dosya adı|Klasör)'}|Select-Object -First 1;if(!$field){throw ('Native filename field missing: '+(($edits|ForEach-Object{$_.Current.Name})-join ','))};([Windows.Automation.ValuePattern]$field.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern)).SetValue($path);Click $picker $buttonName;Start-Sleep -Milliseconds 600;if(!$root.Current.IsEnabled -and !$allowWork){throw 'Native selection did not return to main owner'};if(!$allowWork){AssertNoProgress}}
+            $newApp=$app;$newRoot=$root
+            $oldFolder=Join-Path $dir 'before';New-Item -ItemType Directory $oldFolder -Force|Out-Null
+            gh release download v1.10.0 --repo $env:GITHUB_REPOSITORY --pattern TeknikServis_PRO.exe --dir $oldFolder
+            if($LASTEXITCODE -ne 0){throw 'Before build download failed'}
+            $oldExe=Join-Path $oldFolder 'TeknikServis_PRO.exe';if((Get-FileHash $oldExe).Hash.ToLowerInvariant() -ne '4ef1edf48180d3ec4d447205890b81884014a3b066d8f60d00d7338700fb41c5'){throw 'Before build hash mismatch'}
+            $app=Start-Process $oldExe -WorkingDirectory $oldFolder -PassThru
+            for($i=0;$i -lt 30;$i++){Start-Sleep -Milliseconds 500;$app.Refresh();if($app.MainWindowHandle -ne 0){break}}
+            $root=[Windows.Automation.AutomationElement]::FromHandle($app.MainWindowHandle);SelectTab 'Format Yedekle / Yükle';Click $root 'Dosya Ekle…';$beforePicker=FindWindow 'Yedeğe eklenecek dosyalar';Start-Sleep -Seconds 2
+            $beforeProgress=ProcessWindows|Where-Object {$_.Current.Name -eq 'İşlem Durumu'};if(!$beforeProgress){throw 'Reported 1.10.0 picker/progress overlap did not reproduce'}
+            $result.beforeBugReproduced=$true;Screenshot $beforeProgress 'before-progress.png'
+            CloseWindow $beforePicker;foreach($window in $beforeProgress){CloseWindow $window};CloseWindow $root;if(!$app.WaitForExit(5000)){Stop-Process -Id $app.Id -Force}
+            $app=$newApp;$root=$newRoot;[NoticeCloser]::SetForegroundWindow([IntPtr]$root.Current.NativeWindowHandle)|Out-Null
+            SelectTab 'Format Yedekle / Yükle'
+            $initialRows=([Windows.Automation.GridPattern](ById $root 'FormatSourceList').GetCurrentPattern([Windows.Automation.GridPattern]::Pattern)).Current.RowCount
+            $cases=@(@('Klasör Ekle…','Yedeğe eklenecek klasör','Cancel'),@('Dosya Ekle…','Yedeğe eklenecek dosyalar','Esc'),@('Hedef Seç…','Formatlanmayacak harici disk / yedek hedefi seçin','X'),@('Geri Yükleme Hedefi…','Yeni kullanıcı klasörü / geri yükleme hedefi seçin','Cancel'),@('Bu Bilgisayarın Yedeklerini Bul','Yedeklerin bulunduğu klasörü seçin','Esc'))
+            foreach($case in $cases){Click $root $case[0];$picker=FindWindow $case[1];Start-Sleep -Milliseconds 1200;AssertNoProgress;if([NoticeCloser]::GetWindow([IntPtr]$picker.Current.NativeWindowHandle,4) -ne [IntPtr]$root.Current.NativeWindowHandle){throw 'Picker owner is not main window'};CancelNative $picker $case[2]}
+            if(([Windows.Automation.GridPattern](ById $root 'FormatSourceList').GetCurrentPattern([Windows.Automation.GridPattern]::Pattern)).Current.RowCount -ne $initialRows){throw 'Cancel changed backup sources'}
+            Click $root 'Dosya Ekle…';$picker=FindWindow 'Yedeğe eklenecek dosyalar'
+            try{Click $root 'Dosya Ekle…'}catch{}
+            Start-Sleep -Seconds 8;AssertNoProgress
+            if((ProcessWindows|Where-Object {$_.Current.Name -eq 'Yedeğe eklenecek dosyalar'}).Count -ne 1){throw 'Repeated click created duplicate picker'}
+            [NoticeCloser]::SetForegroundWindow([IntPtr]$picker.Current.NativeWindowHandle)|Out-Null;[Windows.Forms.SendKeys]::SendWait('%{TAB}');Start-Sleep -Milliseconds 200;[Windows.Forms.SendKeys]::SendWait('%{TAB}');Start-Sleep -Milliseconds 200;AssertNoProgress;Screenshot $picker 'after-file-picker.png';CancelNative $picker 'X'
+            $fixtures=Join-Path $dir 'picker-fixtures';New-Item -ItemType Directory $fixtures -Force|Out-Null;$selected=Join-Path $fixtures 'selected-folder';New-Item -ItemType Directory $selected -Force|Out-Null;$file=Join-Path $fixtures 'selected-file.txt';[IO.File]::WriteAllText($file,'synthetic fixture; no copy operation')
+            Click $root 'Dosya Ekle…';$picker=FindWindow 'Yedeğe eklenecek dosyalar';NativePath $picker $file 'Open'
+            Click $root 'Klasör Ekle…';$picker=FindWindow 'Yedeğe eklenecek klasör';NativePath $picker $selected 'Select Folder'
+            $rows=([Windows.Automation.GridPattern](ById $root 'FormatSourceList').GetCurrentPattern([Windows.Automation.GridPattern]::Pattern)).Current.RowCount;if($rows -ne $initialRows+2){throw 'Selected synthetic file/folder not added exactly once'}
+            function SetValueById([string]$id,[string]$value){$element=ById $root $id;if(!$element){throw "Missing input: $id"};([Windows.Automation.ValuePattern]$element.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern)).SetValue($value);Start-Sleep -Milliseconds 100}
+            function WaitWork([bool]$expectError=$false){$seenError=$false;for($n=0;$n -lt 240;$n++){foreach($w in (ProcessWindows)){$name=$w.Current.Name;if($name -in @('İşlem tamamlandı','İşlem tamamlanamadı')){if($name -eq 'İşlem tamamlanamadı'){$seenError=$true};$ok=FindNamed $w 'Tamam' ([Windows.Automation.ControlType]::Button);if($ok){([Windows.Automation.InvokePattern]$ok.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern)).Invoke()}}};Start-Sleep -Milliseconds 200;$footer=ById $root 'MainFooterStatus';if($footer.Current.Name.StartsWith('Hazır') -and $root.Current.IsEnabled){foreach($w in (ProcessWindows|Where-Object {$_.Current.Name -eq 'İşlem Durumu'})){CloseWindow $w};if($expectError -ne $seenError){throw ('Unexpected operation error state: '+$seenError)};return}};throw 'Operation failed to release busy state within 48 seconds'}
+            function GridPattern{return [Windows.Automation.GridPattern](ById $root 'FormatSourceList').GetCurrentPattern([Windows.Automation.GridPattern]::Pattern)}
+            function SelectSource([int]$index){$cell=(GridPattern).GetItem($index,0);$check=$cell.FindFirst($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::CheckBox));if(!$check){throw 'Source business checkbox missing'};([Windows.Automation.TogglePattern]$check.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle();Start-Sleep -Milliseconds 150}
+            function SelectSourceRow([int]$index){$cell=(GridPattern).GetItem($index,1);$walker=[Windows.Automation.TreeWalker]::ControlViewWalker;$row=$cell;for($i=0;$i -lt 5 -and $row.Current.ControlType -ne [Windows.Automation.ControlType]::DataItem;$i++){$row=$walker.GetParent($row)};([Windows.Automation.SelectionItemPattern]$row.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern)).Select()}
+            SelectSourceRow 8;Click $root 'Ek Kaynağı Listeden Kaldır';if((GridPattern).Current.RowCount -ne $initialRows+1 -or !(Test-Path $selected)){throw 'Remove source did not preserve original folder'}
+            $all=ById $root 'SelectAll_FormatSources';([Windows.Automation.TogglePattern]$all.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle();Start-Sleep -Milliseconds 200
+            if(([Windows.Automation.TogglePattern]$all.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Current.ToggleState -ne [Windows.Automation.ToggleState]::Off){throw 'Uncheck all failed'}
+            ([Windows.Automation.TogglePattern]$all.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle();if(([Windows.Automation.TogglePattern]$all.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Current.ToggleState -ne [Windows.Automation.ToggleState]::On){throw 'Check all failed'}
+            ([Windows.Automation.TogglePattern]$all.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle()
+            SelectSource 7
+            $target=Join-Path $fixtures 'backups';$restore=Join-Path $fixtures 'new-user';$empty=Join-Path $fixtures 'empty';New-Item -ItemType Directory $target,$restore,$empty -Force|Out-Null
+            Click $root 'Hedef Seç…';$picker=FindWindow 'Formatlanmayacak harici disk / yedek hedefi seçin';NativePath $picker $target 'Select Folder'
+            Click $root 'Geri Yükleme Hedefi…';$picker=FindWindow 'Yeni kullanıcı klasörü / geri yükleme hedefi seçin';NativePath $picker $restore 'Select Folder'
+            Click $root 'Bu Bilgisayarın Yedeklerini Bul';$picker=FindWindow 'Yedeklerin bulunduğu klasörü seçin';NativePath $picker $empty 'Select Folder' $true;WaitWork
+            if(!(ById $root 'FormatExplanation').Current.Name.Contains('bulunamadı')){throw 'Empty catalog lacks useful explanation'}
+            Click $root 'Seçili Yedeği Geri Yükle';WaitWork $true
+            SetValueById 'FormatTargetPath' (Join-Path $fixtures 'missing-target');Click $root 'Ön Kontrol';WaitWork $true
+            SetValueById 'FormatTargetPath' $target
+            SetValueById 'FormatExclusions' $file;Click $root 'Ön Kontrol';WaitWork
+            if(!(ById $root 'FormatExplanation').Current.Name.Contains('0 dosya')){throw 'Exclusion did not apply in preflight'}
+            SetValueById 'FormatExclusions' '';Click $root 'Ön Kontrol';WaitWork
+            if(!(ById $root 'FormatExplanation').Current.Name.Contains('1 dosya')){throw 'Preflight selected unintended sources'}
+            $denied=Join-Path $fixtures 'denied-target';New-Item -ItemType Directory $denied -Force|Out-Null;$savedAcl=Get-Acl $denied
+            try{$restricted=Get-Acl $denied;$sid=[Security.Principal.WindowsIdentity]::GetCurrent().User;$rule=[Security.AccessControl.FileSystemAccessRule]::new($sid,[Security.AccessControl.FileSystemRights]::Write,[Security.AccessControl.InheritanceFlags]'ContainerInherit,ObjectInherit',[Security.AccessControl.PropagationFlags]::None,[Security.AccessControl.AccessControlType]::Deny);$restricted.AddAccessRule($rule);Set-Acl $denied $restricted;SetValueById 'FormatTargetPath' $denied;Click $root 'Seçilenleri Yedekle';$confirm=FindWindow 'İşlem onayı';Click $confirm 'Devam Et';WaitWork $true;if((Get-ChildItem $denied -Force).Count -ne 0 -or !(Test-Path $file)){throw 'Denied target changed data'}}finally{Set-Acl $denied $savedAcl}
+            SetValueById 'FormatTargetPath' $target
+            Click $root 'Seçilenleri Yedekle';$confirm=FindWindow 'İşlem onayı';Click $confirm 'Devam Et';WaitWork
+            $manifests=@(Get-ChildItem $target -Filter manifest.json -Recurse);if($manifests.Count -ne 1 -or (Get-Content $manifests[0].FullName|ConvertFrom-Json).Status -ne 'Complete'){throw 'Synthetic backup was not complete'}
+            Click $root 'Bu Bilgisayarın Yedeklerini Bul';$picker=FindWindow 'Yedeklerin bulunduğu klasörü seçin';NativePath $picker $target 'Select Folder' $true;WaitWork
+            $catalog=ById $root 'FormatBackupCatalog';if($catalog.FindAll($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::ListItem)).Count -ne 1){throw 'Completed backup not found in catalog'}
+            Click $root 'Seçili Yedeği Geri Yükle';$confirm=FindWindow 'İşlem onayı';Click $confirm 'Devam Et';WaitWork
+            $restored=Get-ChildItem $restore -Filter selected-file.txt -Recurse|Select-Object -First 1;if(!$restored -or (Get-FileHash $restored.FullName).Hash -ne (Get-FileHash $file).Hash){throw 'Restore to new user failed integrity check'}
+            [IO.File]::WriteAllText($restored.FullName,'existing fixture must survive');$keep=ById $root 'FormatKeepBoth';([Windows.Automation.TogglePattern]$keep.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle()
+            Click $root 'Seçili Yedeği Geri Yükle';$confirm=FindWindow 'İşlem onayı';Click $confirm 'Devam Et';WaitWork
+            if([IO.File]::ReadAllText($restored.FullName) -ne 'existing fixture must survive' -or !(ById $root 'FormatExplanation').Current.Name.Contains('1 çakışma')){throw 'Skip-conflict restore overwrote existing file or misreported result'}
+            ([Windows.Automation.TogglePattern]$keep.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle();Click $root 'Seçili Yedeği Geri Yükle';$confirm=FindWindow 'İşlem onayı';Click $confirm 'Devam Et';WaitWork
+            if(!(Get-ChildItem $restore -Filter '*Yedek*' -Recurse|Where-Object {!$_.PSIsContainer}) -or [IO.File]::ReadAllText($restored.FullName) -ne 'existing fixture must survive'){throw 'KeepBoth conflict restore failed'}
+            $large=Join-Path $fixtures 'cancel-fixture.bin';$stream=[IO.File]::Create($large);try{$stream.SetLength(268435456)}finally{$stream.Dispose()}
+            Click $root 'Dosya Ekle…';$picker=FindWindow 'Yedeğe eklenecek dosyalar';NativePath $picker $large 'Open'
+            Click $root 'Seçilenleri Yedekle';$confirm=FindWindow 'İşlem onayı';Click $confirm 'Devam Et';Start-Sleep -Milliseconds 100;Click $root 'Yedekleme / Geri Yüklemeyi Durdur';WaitWork
+            if(!(ById $root 'FormatExplanation').Current.Name.Contains('iptal') -or (Get-Item $large).Length -ne 268435456){throw 'Backup cancel failed or source changed'}
+            $invalid=Join-Path $fixtures 'invalid-backup';New-Item -ItemType Directory $invalid -Force|Out-Null;[IO.File]::WriteAllText((Join-Path $invalid 'manifest.json'),'invalid synthetic manifest')
+            Click $root 'Bu Bilgisayarın Yedeklerini Bul';$picker=FindWindow 'Yedeklerin bulunduğu klasörü seçin';NativePath $picker $invalid 'Select Folder' $true;WaitWork $true
+            Click $root 'Klasörleri Listele';Start-Sleep -Milliseconds 200;if((GridPattern).Current.RowCount -ne 7){throw 'Reset known folder listing failed'}
+            $all=ById $root 'SelectAll_FormatSources';([Windows.Automation.TogglePattern]$all.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle();Click $root 'Ön Kontrol';WaitWork $true
+            $result.formatControls=[ordered]@{addFolder=$true;addFile=$true;pickBackupTarget=$true;pickRestoreTarget=$true;removeSourceWithoutDeletion=$true;selectAndUnselectAll=$true;exclusions=$true;preflight=$true;emptyCatalog=$true;findCompletedBackup=$true;backupIntegrity=$true;restoreNewUser=$true;skipConflict=$true;keepBothConflict=$true;cancelBackupPreservesSource=$true;invalidTarget=$true;inaccessibleTarget=$true;invalidManifest=$true;noSelection=$true;refreshFolders=$true}
+            Screenshot $root 'after-format.png'
+            SelectTab 'Arama Motoru Yedekleme';Click $root 'Dışa Aktarılan Dosyayı Seç…';$picker=FindWindow 'Tarayıcıdan kendiniz dışa aktardığınız HTML / CSV dosyasını seçin';Start-Sleep -Seconds 1;AssertNoProgress;CancelNative $picker 'Cancel'
+            $result.pickerOnlyNoProgress=$true;$result.cancelEscCloseClean=$true;$result.singlePickerReentrancyGuard=$true;$result.ownerAndFocusVerified=$true;$result.longWaitNoProgress=$true;$result.syntheticSelectionAddedOnce=$true;$result.browserPickerAlsoFixed=$true
+            $result.hardwareScope='Full Format section Windows UI regression with synthetic fixture files only: selection, catalog, preflight, backup/cancel, new-user restore and conflicts. No customer files, printer, network or credential operation performed.'
+            $app.Refresh();$result.mainWindowEnabled=$root.Current.IsEnabled
+            if(!$root.Current.IsEnabled){throw 'Main window remained disabled after dialogs'}
+            if(![NoticeCloser]::PostMessage([IntPtr]$root.Current.NativeWindowHandle,0x0010,[IntPtr]::Zero,[IntPtr]::Zero)){throw 'Main window close request failed'}
+            if (!$app.WaitForExit(10000)) {
+              $windows=[Windows.Automation.AutomationElement]::RootElement.FindAll([Windows.Automation.TreeScope]::Children,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ProcessIdProperty,$app.Id))
+              $result.remainingWindows=@($windows|ForEach-Object {$_.Current.Name})
+              throw 'Application did not close normally'
+            }
+            if([IO.File]::ReadAllText((Join-Path $folder 'Data/fixture-preserve.txt')) -ne 'synthetic-keep-data' -or [IO.File]::ReadAllText((Join-Path $folder 'Drivers/fixture-preserve.txt')) -ne 'synthetic-keep-drivers'){throw 'Existing Data/Drivers sentinel changed'}
+            $result.existingDataDriversPreserved=$true
+            $result.applicationExitCode=$app.ExitCode
+            if ($app.ExitCode -ne 0) { throw 'Application exit code was not zero' }
+          } catch { $result.errors += $_.Exception.Message;try{if($root){Screenshot $root 'failure1100.png'}}catch{} } finally {
+            if ($app -and !$app.HasExited) { Stop-Process -Id $app.Id -Force -ErrorAction SilentlyContinue }
+            try { Get-MpThreatDetection | ConvertTo-Json -Depth 8 | Set-Content "$dir/threat-detections.json" } catch {}
+            $result | ConvertTo-Json -Depth 8 | Tee-Object "$dir/result.json"
+
+
+          }
+          if ($result.verdict -ne 'NO_DETECTION_IN_THIS_ENVIRONMENT' -or !$result.startupVerified -or $result.errors.Count) { exit 1 }
+      - name: Publish only after verified scan and startup
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $ErrorActionPreference='Stop'
+          $dir=Join-Path $env:RUNNER_TEMP 'exact-archive-review'
+          $r=Get-Content "$dir/result.json" | ConvertFrom-Json
+          if($r.verdict -ne 'NO_DETECTION_IN_THIS_ENVIRONMENT' -or !$r.startupVerified -or $r.errors.Count){throw 'Review gate failed'}
+          $exe=Join-Path $dir 'application/TeknikServis_PRO.exe'
+          $legacy=Join-Path $dir 'TeknikAsistanim_PRO.exe';Copy-Item $exe $legacy
+          gh release create v1.10.1 --draft --title 'Teknik Servis PRO 1.10.1' --notes-file binaries/release-notes.md
+          if($LASTEXITCODE -ne 0){throw 'Draft release creation failed; no existing release overwritten'}
+          gh release upload v1.10.1 $exe $legacy "$dir/TeknikServis_PRO_1.10.1_EXE.zip" "$dir/result.json"
+          if($LASTEXITCODE -ne 0){throw 'Upload failed'}
+          gh api "repos/$env:GH_REPO/releases?per_page=30" > "$dir/releases.json"
+          $release=(Get-Content "$dir/releases.json" | ConvertFrom-Json) | Where-Object tag_name -eq 'v1.10.1'
+          foreach($name in @('TeknikServis_PRO.exe','TeknikAsistanim_PRO.exe')){
+            $a=$release.assets | Where-Object name -eq $name
+            if($a.digest.ToLowerInvariant() -ne ('sha256:'+$r.exeSha256)){throw 'Uploaded EXE digest mismatch'}
+          }
+          $z=$release.assets | Where-Object name -eq 'TeknikServis_PRO_1.10.1_EXE.zip'
+          if($z.digest.ToLowerInvariant() -ne ('sha256:'+$r.zipSha256)){throw 'Uploaded ZIP digest mismatch'}
+          Write-Output 'Verified draft ready; publication follows visual screenshot review.'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: exact-original-archive-and-startup
+          path: |
+            ${{ runner.temp }}/exact-archive-review/result.json
+            ${{ runner.temp }}/exact-archive-review/scan-*.txt
+            ${{ runner.temp }}/exact-archive-review/threat-detections.json
+            ${{ runner.temp }}/exact-archive-review/*.png
+
+          retention-days: 14
+
+# Synthetic fixture root follows RUNNER_TEMP on Windows; AppData remains excluded.
+
+# Unify folder checkboxes with existing business-selection controller.
+
+# Full Format section synthetic control and lifecycle regression.
+
+# Include catalog cancellation and synthetic ACL-denied target handling.
