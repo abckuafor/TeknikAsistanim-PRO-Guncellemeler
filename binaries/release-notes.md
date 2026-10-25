@@ -1,6 +1,5 @@
-Teknik Servis PRO 1.10.5
-- Üç ayrı ekran: tarayıcı seçimi, yedek ayarları, işlem sonucu.
-- Geri yükleme: yedek dosyasını seç, parolayı gir, sonucu gör.
-- Liste tüm içerik alanını kullanır; iç içe açılır ayarlar kaldırıldı.
-- Onay ve şifreleme korumaları, Data/Drivers ve güncelleme kimliği korunur.
-- Şifreler için resmî dışa aktarım ve kullanıcı adımları devam eder.
+Teknik Servis PRO 1.10.6
+- Yeni tarayıcı yedekleri yalnız yer imleri/favorileri içerir.
+- Kayıtlı şifre seçimi, CSV hazırlama ve şifre dışa aktarım pencereleri kaldırıldı.
+- Yedek dosyasını koruyan parola devam eder; tarayıcıdaki kayıtlı şifreler silinmez.
+- Eski yedeklerin geri yükleme uyumluluğu ve Data/Drivers korunur.
