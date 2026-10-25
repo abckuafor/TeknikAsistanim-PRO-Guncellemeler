@@ -1,5 +1,6 @@
-Teknik Servis PRO 1.10.3
-- Geri yüklemede parola tekrarı gizlenir; yalnız yedek oluştururken kullanılan parolanın istendiği açıkça yazılır.
-- Yedek oluşturma modunda parola ve tekrarı korunur; dar pencerede alanlar alt satıra geçebilir.
-- Konum düğmesi: Yedekleme / Geri Yükleme Konumunu Seç. Altında yedek alırken/geri yüklerken seçilecek yer açıklanır.
-- Parola doğrulama, kapsam onayı, şifreleme ve mevcut Data/Drivers korunur.
+Teknik Servis PRO 1.10.4
+- Tam genişlikte tarayıcı listesi, liste/ayarlar arasında sürüklenebilir ayırıcı.
+- Konum ve parola alanları dengelendi.
+- Satır HTML/CSV düğmeleri kaldırıldı; seçili profilleri hazırlama tek akışta.
+- Yer imleri erişilebilen profillerden otomatik. Şifrelerde müşterinin resmî dışa aktarımı/OS onayı ve CSV seçimi hâlâ gereklidir; sessiz şifre çıkarımı yapılmaz.
+- Onay, parola ve mevcut veri korumaları devam eder.
