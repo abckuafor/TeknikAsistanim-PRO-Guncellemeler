@@ -134,6 +134,8 @@ jobs:
             $transform.Resize(950,700);Start-Sleep -Milliseconds 300
             $grid=ById $root 'BrowserWizardProfiles'
             if($grid.Current.BoundingRectangle.Right -gt $root.Current.BoundingRectangle.Right){throw 'Compact browser grid overflows resized window'}
+            $csvAction=FindNamed $grid 'Şifre aktarımı: Chrome / Default' ([Windows.Automation.ControlType]::Button);if(!$csvAction -or $csvAction.Current.IsOffscreen -or $csvAction.Current.BoundingRectangle.Height -lt 25){throw 'First row CSV action clipped after resize'}
+            $rowParent=$csvAction;while($rowParent -and $rowParent.Current.ControlType -ne [Windows.Automation.ControlType]::DataItem){$rowParent=[Windows.Automation.TreeWalker]::ControlViewWalker.GetParent($rowParent)};if(!$rowParent -or $csvAction.Current.BoundingRectangle.Bottom -gt $rowParent.Current.BoundingRectangle.Bottom+1){throw 'CSV action extends below its own row'}
             Screenshot $root 'browser-compact.png'
             $winPattern.SetWindowVisualState([Windows.Automation.WindowVisualState]::Maximized)
             foreach($i in 1..2){SelectTab 'Donanım ve Sürücüler';SelectTab 'Arama Motoru Yedekleme'}
