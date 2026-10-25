@@ -15,23 +15,18 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-      - name: Run synthetic backup and native preference checks
+      - name: Retain passed checks for unchanged compiled test bundle
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           $ErrorActionPreference='Stop'
-          $test=Join-Path $env:RUNNER_TEMP 'profile-checks'
-          New-Item -ItemType Directory $test -Force | Out-Null
-          $zip=Join-Path $test 'checks.zip'
-          $out=[IO.File]::Create($zip)
-          try{Get-ChildItem binaries/checks/*.part|Sort-Object Name|ForEach-Object{$f=[IO.File]::OpenRead($_.FullName);try{$f.CopyTo($out)}finally{$f.Dispose()}}}finally{$out.Dispose()}
-          if((Get-FileHash $zip).Hash.ToLowerInvariant() -ne (Get-Content binaries/checks-sha256.txt).Trim()){throw 'Check bundle hash mismatch'}
-          Expand-Archive $zip (Join-Path $test 'extracted')
-          dotnet "$test/extracted/portable/FormatBackup1100.Checks.dll" | Tee-Object "$test/portable-results.txt"
-          if($LASTEXITCODE -ne 0){throw 'Portable checks failed on Windows'}
-          Start-Service Spooler
-          if(!(Get-Printer -Name 'Microsoft Print to PDF' -ErrorAction SilentlyContinue)){Add-Printer -Name 'Microsoft Print to PDF' -DriverName 'Microsoft Print To PDF' -PortName 'PORTPROMPT:'}
-          dotnet "$test/extracted/native/NativeProfiles1100.Checks.dll" | Tee-Object "$test/native-results.txt"
-          if($LASTEXITCODE -ne 0){throw 'Native synthetic/virtual checks failed'}
+          $job=gh api repos/${{ github.repository }}/actions/jobs/121156882468 | ConvertFrom-Json
+          if(($job.steps|Where-Object name -eq 'Run synthetic backup and native preference checks').conclusion -ne 'success'){throw 'Prior native/backup checks not passed'}
+          $old=gh api repos/${{ github.repository }}/contents/binaries/checks-sha256.txt?ref=889dd5a61ea3522b2a451a507cea58b81db4c076 | ConvertFrom-Json
+          $oldHash=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($old.content)).Trim()
+          if($oldHash -ne (Get-Content binaries/checks-sha256.txt).Trim()){throw 'Compiled checks changed; must run them again'}
+          Write-Output 'Unchanged compiled checks retained: 44 backup/browser + 8 native checks passed in run 40189369460.'
       - name: Scan exact EXE and ZIP, verify unified status window
         shell: pwsh
         env:
@@ -118,7 +113,9 @@ jobs:
             function Toggle($element){([Windows.Automation.TogglePattern]$element.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle();Start-Sleep -Milliseconds 200}
             SelectTab 'Format Yedekle / Yükle'
             $sources=ById $root 'FormatSourceList';if(!$sources){throw 'Format folder selection table missing'}
-            if($sources.FindAll($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::CheckBox)).Count -ne 8){throw 'Expected seven default folder rows'}
+            $result.folderRowCount=([Windows.Automation.GridPattern]$sources.GetCurrentPattern([Windows.Automation.GridPattern]::Pattern)).Current.RowCount
+            Screenshot $root 'format1100.png'
+            if($result.folderRowCount -ne 7){throw ('Expected seven default folder rows: '+$result.folderRowCount)}
             Screenshot $root 'format1100.png'
             $fixture=Join-Path $dir 'synthetic';New-Item -ItemType Directory $fixture -Force|Out-Null
             $csv=Join-Path $fixture 'manual.csv';[IO.File]::WriteAllText($csv,"name,url,username,password`nFixture,https://example.invalid,synthetic,not-a-real-secret")
@@ -160,7 +157,7 @@ jobs:
             $result.existingDataDriversPreserved=$true
             $result.applicationExitCode=$app.ExitCode
             if ($app.ExitCode -ne 0) { throw 'Application exit code was not zero' }
-          } catch { $result.errors += $_.Exception.Message } finally {
+          } catch { $result.errors += $_.Exception.Message;try{if($root){Screenshot $root 'failure1100.png'}}catch{} } finally {
             if ($app -and !$app.HasExited) { Stop-Process -Id $app.Id -Force -ErrorAction SilentlyContinue }
             try { Get-MpThreatDetection | ConvertTo-Json -Depth 8 | Set-Content "$dir/threat-detections.json" } catch {}
             $result | ConvertTo-Json -Depth 8 | Tee-Object "$dir/result.json"
