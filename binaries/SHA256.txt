@@ -1,1 +1,1 @@
-eb1ddca58b96e526d71e322a81a844bae75f4a44ec53bf55f68634a6f34626fa  TeknikServis_PRO.exe
+a6cbb06ad37af55e543795c248bf3091f95aa8b745771c82881d09299f0241c7  TeknikServis_PRO.exe

@@ -12,6 +12,17 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Verify combined browser package with synthetic data
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          if((Get-FileHash binaries/browser1101-checks.zip).Hash.ToLowerInvariant() -ne (Get-Content binaries/browser-checks-sha.txt).Trim()){throw 'Synthetic check bundle hash mismatch'}
+          $check=Join-Path $env:RUNNER_TEMP 'browser-package-checks';Expand-Archive binaries/browser1101-checks.zip $check
+          dotnet "$check/BrowserPackage1101.Checks.dll" | Tee-Object "$env:RUNNER_TEMP/browser-package-results.txt"
+          if($LASTEXITCODE -ne 0){throw 'Browser package safety checks failed'}
       - name: Scan exact EXE and ZIP, verify unified status window
         shell: pwsh
         env:
@@ -105,6 +116,7 @@ jobs:
             $cases=@(@('Klasör Ekle…','Yedeğe eklenecek klasör','Cancel'),@('Dosya Ekle…','Yedeğe eklenecek dosyalar','Esc'),@('Hedef Seç…','Formatlanmayacak harici disk / yedek hedefi seçin','X'),@('Geri Yükleme Hedefi…','Yeni kullanıcı klasörü / geri yükleme hedefi seçin','Cancel'),@('Bu Bilgisayarın Yedeklerini Bul','Yedeklerin bulunduğu klasörü seçin','Esc'))
             foreach($case in $cases){Click $root $case[0];$picker=FindWindow $case[1];Start-Sleep -Milliseconds 1200;AssertNoProgress;if([NoticeCloser]::GetWindow([IntPtr]$picker.Current.NativeWindowHandle,4) -ne [IntPtr]$root.Current.NativeWindowHandle){throw 'Picker owner is not main window'};CancelNative $picker $case[2]}
             if(([Windows.Automation.GridPattern](ById $root 'FormatSourceList').GetCurrentPattern([Windows.Automation.GridPattern]::Pattern)).Current.RowCount -ne $initialRows){throw 'Cancel changed backup sources'}
+            $all=ById $root 'SelectAll_FormatSources';([Windows.Automation.TogglePattern]$all.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle();([Windows.Automation.TogglePattern]$all.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle();([Windows.Automation.TogglePattern]$all.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle()
             Click $root 'Dosya Ekle…';$picker=FindWindow 'Yedeğe eklenecek dosyalar'
             try{Click $root 'Dosya Ekle…'}catch{}
             Start-Sleep -Seconds 8;AssertNoProgress
@@ -122,12 +134,11 @@ jobs:
             function SelectSource([int]$index){ClickLastSource $index $true}
             function SelectSourceRow([int]$index){ClickLastSource $index $false}
             $result.phase='source remove and selection'
-            SelectSourceRow 8;Click $root 'Ek Kaynağı Listeden Kaldır';if((GridPattern).Current.RowCount -ne $initialRows+1 -or !(Test-Path $selected)){throw 'Remove source did not preserve original folder'}
-            $all=ById $root 'SelectAll_FormatSources';([Windows.Automation.TogglePattern]$all.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle();Start-Sleep -Milliseconds 200
-            if(([Windows.Automation.TogglePattern]$all.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Current.ToggleState -ne [Windows.Automation.ToggleState]::Off){throw 'Uncheck all failed'}
-            ([Windows.Automation.TogglePattern]$all.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle();if(([Windows.Automation.TogglePattern]$all.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Current.ToggleState -ne [Windows.Automation.ToggleState]::On){throw 'Check all failed'}
-            ([Windows.Automation.TogglePattern]$all.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle()
-            SelectSource 7
+            $grid=ById $root 'FormatSourceList';$scroll=[Windows.Automation.ScrollPattern]$grid.GetCurrentPattern([Windows.Automation.ScrollPattern]::Pattern);$scroll.SetScrollPercent(-1,100);Start-Sleep -Milliseconds 400
+            Click $root 'Listeden kaldır: selected-folder';Start-Sleep -Milliseconds 300;if((GridPattern).Current.RowCount -ne $initialRows+1 -or !(Test-Path $selected)){throw 'Remove source did not preserve original folder'}
+            $cell=(GridPattern).GetItem(7,0);$one=$cell.FindFirst($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::CheckBox));if(!$one){throw 'Nonvirtual single source checkbox missing'}
+            ([Windows.Automation.TogglePattern]$one.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle();if(([Windows.Automation.TogglePattern](ById $root 'SelectAll_FormatSources').GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Current.ToggleState -ne [Windows.Automation.ToggleState]::Off){throw 'Single source uncheck failed'}
+            ([Windows.Automation.TogglePattern]$one.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle()
             $target=Join-Path $fixtures 'backups';$restore=Join-Path $fixtures 'new-user';$empty=Join-Path $fixtures 'empty';New-Item -ItemType Directory $target,$restore,$empty -Force|Out-Null
             $result.phase='choose targets'
             Click $root 'Hedef Seç…';$picker=FindWindow 'Formatlanmayacak harici disk / yedek hedefi seçin';NativePath $picker $target 'Select Folder'
@@ -172,7 +183,35 @@ jobs:
             $all=ById $root 'SelectAll_FormatSources';([Windows.Automation.TogglePattern]$all.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle();Click $root 'Ön Kontrol';WaitWork $true
             $result.formatControls=[ordered]@{addFolder=$true;addFile=$true;pickBackupTarget=$true;pickRestoreTarget=$true;removeSourceWithoutDeletion=$true;selectAndUnselectAll=$true;exclusions=$true;preflight=$true;emptyCatalog=$true;findCompletedBackup=$true;backupIntegrity=$true;restoreNewUser=$true;skipConflict=$true;keepBothConflict=$true;cancelBackupPreservesSource=$true;invalidTarget=$true;inaccessibleTarget=$true;invalidManifest=$true;noSelection=$true;refreshFolders=$true}
             Screenshot $root 'after-format.png'
-            SelectTab 'Arama Motoru Yedekleme';Click $root 'Dışa Aktarılan Dosyayı Seç…';$picker=FindWindow 'Tarayıcıdan kendiniz dışa aktardığınız HTML / CSV dosyasını seçin';Start-Sleep -Seconds 1;AssertNoProgress;CancelNative $picker 'Cancel'
+            SelectTab 'Arama Motoru Yedekleme';Click $root 'Paket Dosyasını Seç…';$picker=FindWindow 'Tek şifreli tarayıcı paketini kaydet';Start-Sleep -Seconds 1;AssertNoProgress;CancelNative $picker 'Cancel'
+            $chromeRoot=Join-Path $env:LOCALAPPDATA 'Google/Chrome/User Data';$profile=Join-Path $chromeRoot 'Default';New-Item -ItemType Directory $profile -Force|Out-Null
+            $book=Join-Path $profile 'Bookmarks';$bookJson='{"version":1,"roots":{"bookmark_bar":{"type":"folder","name":"Bookmarks","children":[{"type":"url","name":"Fixture","url":"https://example.invalid"}]}}}'
+            [IO.File]::WriteAllText($book,$bookJson);[IO.File]::WriteAllText((Join-Path $chromeRoot 'Last Version'),'131.0.0.0')
+            $csv=Join-Path $fixtures 'official-passwords.csv';[IO.File]::WriteAllText($csv,"name,url,username,password`nFixture,https://example.invalid,synthetic,not-a-real-secret`n")
+            Click $root 'Tarayıcıları Listele';Start-Sleep -Milliseconds 300;AssertNoProgress
+            $allBrowser=ById $root 'SelectAll_BrowserWizardRows';$toggle=[Windows.Automation.TogglePattern]$allBrowser.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern);if($toggle.Current.ToggleState -ne [Windows.Automation.ToggleState]::On){$toggle.Toggle()};$toggle.Toggle()
+            Click $root 'Şifre aktarımı: Chrome / Default';$guide=FindWindow 'Tarayıcı aktarım adımı';CloseWindow $guide;AssertNoProgress;if(!$root.Current.IsEnabled -or (ProcessWindows|Where-Object {$_.Current.Name -eq 'Resmî şifre CSV dosyasını ekle'})){throw 'Cancelling official export step opened file picker'}
+            Click $root 'Şifre aktarımı: Chrome / Default';$guide=FindWindow 'Tarayıcı aktarım adımı';Click $guide 'Tamam';$picker=FindWindow 'Resmî şifre CSV dosyasını ekle';NativePath $picker $csv 'Open'
+            $package=Join-Path $fixtures 'unified-browser.tsbrowser';SetValueById 'BrowserWizardPackagePath' $package
+            function SetTestPassword([string]$id,[string]$value){$box=ById $root $id;try{([Windows.Automation.ValuePattern]$box.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern)).SetValue($value)}catch{[NoticeCloser]::SetForegroundWindow([IntPtr]$root.Current.NativeWindowHandle)|Out-Null;$box.SetFocus();[Windows.Forms.SendKeys]::SendWait('^a');[Windows.Forms.SendKeys]::SendWait($value)};Start-Sleep -Milliseconds 100}
+            function WizardConsent{([Windows.Automation.TogglePattern](ById $root 'BrowserBackupConsent').GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle();Start-Sleep -Milliseconds 150}
+            SetTestPassword 'BrowserVaultPassword' '1234567';SetTestPassword 'BrowserVaultRepeat' '1234567';WizardConsent;if((ById $root 'BrowserBackupSave').Current.IsEnabled){throw 'Seven character wizard password accepted'}
+            SetTestPassword 'BrowserVaultPassword' '12345678';SetTestPassword 'BrowserVaultRepeat' '12345678';if(([Windows.Automation.TogglePattern](ById $root 'BrowserBackupConsent').GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Current.ToggleState -ne [Windows.Automation.ToggleState]::Off){throw 'Password change did not reset wizard consent'}
+            WizardConsent;if(!(ById $root 'BrowserBackupSave').Current.IsEnabled){throw 'Eight character ready wizard not enabled'}
+            Click $root 'Onayla ve Yedekle';WaitWork
+            if(!(Test-Path $package) -or [IO.File]::ReadAllText($package).Contains('not-a-real-secret') -or !(ById $root 'BrowserWizardStatus').Current.Name.Contains('2 veri dosyası')){throw 'Unified encrypted bookmark/password package was not produced'}
+            [IO.File]::WriteAllText($book,$bookJson.Replace('Fixture','Current'))
+            $mode=ById $root 'BrowserWizardMode';([Windows.Automation.ExpandCollapsePattern]$mode.GetCurrentPattern([Windows.Automation.ExpandCollapsePattern]::Pattern)).Expand();Start-Sleep -Milliseconds 150
+            $restoreMode=FindNamed ([Windows.Automation.AutomationElement]::RootElement) 'Geri Yükle' ([Windows.Automation.ControlType]::ListItem);if(!$restoreMode){throw 'Restore mode missing'};([Windows.Automation.SelectionItemPattern]$restoreMode.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern)).Select()
+            $replace=ById $root 'BrowserWizardReplace';([Windows.Automation.TogglePattern]$replace.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle()
+            SetTestPassword 'BrowserVaultPassword' '12345678';WizardConsent;Click $root 'Planı Göster ve Geri Yükle';$confirm=FindWindow 'İşlem onayı';Click $confirm 'Vazgeç';WaitWork
+            if(![IO.File]::ReadAllText($book).Contains('Current')){throw 'Cancelled wizard restore changed browser profile'}
+            SetTestPassword 'BrowserVaultPassword' '12345678';WizardConsent;Click $root 'Planı Göster ve Geri Yükle';$confirm=FindWindow 'İşlem onayı';Click $confirm 'Devam Et';WaitWork
+            $staged=Join-Path $env:LOCALAPPDATA 'TeknikServisPRO/TarayiciAktarim/Chrome/Default/Sifreler.csv'
+            if([IO.File]::ReadAllText($book) -ne $bookJson -or !(Test-Path $staged) -or (Get-FileHash $staged).Hash -ne (Get-FileHash $csv).Hash){throw 'Unified restore did not restore exact bookmark/official CSV fixture'}
+            if(!(ById $root 'BrowserWizardStatus').Current.Name.Contains('henüz tamamlanmadı')){throw 'Manual browser import requirement was falsely presented as complete'}
+            $result.browserWizard=[ordered]@{unifiedPackage=$true;minimumEight=$true;consentReset=$true;restorePlanCancel=$true;bookmarkRestoreExact=$true;passwordStagingExact=$true;manualImportReported=$true}
+            Screenshot $root 'browser-wizard.png'
             $result.pickerOnlyNoProgress=$true;$result.cancelEscCloseClean=$true;$result.singlePickerReentrancyGuard=$true;$result.ownerAndFocusVerified=$true;$result.longWaitNoProgress=$true;$result.syntheticSelectionAddedOnce=$true;$result.browserPickerAlsoFixed=$true
             $result.hardwareScope='Full Format section Windows UI regression with synthetic fixture files only: selection, catalog, preflight, backup/cancel, new-user restore and conflicts. No customer files, printer, network or credential operation performed.'
             $app.Refresh();$result.mainWindowEnabled=$root.Current.IsEnabled
@@ -229,6 +268,7 @@ jobs:
             ${{ runner.temp }}/exact-archive-review/scan-*.txt
             ${{ runner.temp }}/exact-archive-review/threat-detections.json
             ${{ runner.temp }}/exact-archive-review/*.png
+            ${{ runner.temp }}/browser-package-results.txt
 
           retention-days: 14
 
@@ -249,3 +289,9 @@ jobs:
 # Use keyboard navigation to realize the final fixture row, avoiding WPF virtualized Grid.GetItem defects.
 
 # Select realized fixture rows with real pointer input rather than a focus-only DataGrid action.
+
+# Explicit per-row remove action; default source checkboxes cleared before adding synthetic sources.
+
+# Product source grids expose stable realized rows; verify single business checkbox too.
+
+# Unified browser workflow: synthetic official export, eight-character minimum, single encrypted package, plan and exact restore.
