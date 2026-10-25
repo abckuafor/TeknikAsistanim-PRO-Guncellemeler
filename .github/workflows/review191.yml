@@ -100,7 +100,7 @@ jobs:
             Click $root 'Cihaz / Model Seç';$model=FindWindow 'Cihaz ve model seçimi';if(!(ById $model 'PeripheralChoice')){throw 'Device chooser missing'};CloseWindow $model
             Click $root 'Diğer Araçlar';$utils=FindWindow 'Cihaz ve araştırma araçları';if(!(ById $utils 'DeviceWatchToggle')){throw 'Device watch tool missing'};CloseWindow $utils
             $tab=ById $root 'ScannerToolsTab';([Windows.Automation.SelectionItemPattern]$tab.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern)).Select();Start-Sleep -Milliseconds 250
-            $scanner=ById $root 'ScannerSourceList';if($scanner.Current.BoundingRectangle.Height -lt 110){throw 'Scanner list has insufficient space'}
+            $scanner=ById $root 'ScannerSourceList';Screenshot $root 'scanner191.png';if($scanner.Current.BoundingRectangle.Height -lt 110){throw ('Scanner list has insufficient space: '+$scanner.Current.BoundingRectangle.Height)}
             $scannerHeight=$scanner.Current.BoundingRectangle.Height;Screenshot $root 'scanner191.png';Click $root 'Tarama Ayarları';$settings=FindWindow 'Tarama ayarları';CheckModern $settings;Screenshot $settings 'scan-settings191.png';CloseWindow $settings
             Click $root 'TWAIN / OCR ve Diğer Araçlar';$scanTools=FindWindow 'Tarayıcı araçları';if(!(ById $scanTools 'TwainScan') -or !(ById $scanTools 'DocumentOcr')){throw 'Moved scanner tools missing'};Screenshot $scanTools 'scan-tools191.png';CloseWindow $scanTools
             $tab=ById $root 'BarcodeToolsTab';([Windows.Automation.SelectionItemPattern]$tab.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern)).Select();Start-Sleep -Milliseconds 250
