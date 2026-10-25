@@ -101,14 +101,14 @@ jobs:
             Click $root 'Diğer Araçlar';$utils=FindWindow 'Cihaz ve araştırma araçları';if(!(ById $utils 'DeviceWatchToggle')){throw 'Device watch tool missing'};CloseWindow $utils
             $tab=ById $root 'ScannerToolsTab';([Windows.Automation.SelectionItemPattern]$tab.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern)).Select();Start-Sleep -Milliseconds 250
             $scanner=ById $root 'ScannerSourceList';if($scanner.Current.BoundingRectangle.Height -lt 110){throw 'Scanner list has insufficient space'}
-            Screenshot $root 'scanner191.png';Click $root 'Tarama Ayarları';$settings=FindWindow 'Tarama ayarları';CheckModern $settings;Screenshot $settings 'scan-settings191.png';CloseWindow $settings
+            $scannerHeight=$scanner.Current.BoundingRectangle.Height;Screenshot $root 'scanner191.png';Click $root 'Tarama Ayarları';$settings=FindWindow 'Tarama ayarları';CheckModern $settings;Screenshot $settings 'scan-settings191.png';CloseWindow $settings
             Click $root 'TWAIN / OCR ve Diğer Araçlar';$scanTools=FindWindow 'Tarayıcı araçları';if(!(ById $scanTools 'TwainScan') -or !(ById $scanTools 'DocumentOcr')){throw 'Moved scanner tools missing'};Screenshot $scanTools 'scan-tools191.png';CloseWindow $scanTools
             $tab=ById $root 'BarcodeToolsTab';([Windows.Automation.SelectionItemPattern]$tab.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern)).Select();Start-Sleep -Milliseconds 250
             $reader=ById $root 'QuickBarcodeTest';if(!$reader -or $reader.Current.IsOffscreen){throw 'Reader test shortcut is not directly visible'}
             $label=FindNamed $root 'Etiket / Kalibrasyon Testi' ([Windows.Automation.ControlType]::Button)
             if($label.Current.IsOffscreen -or $label.Current.BoundingRectangle.Bottom -gt $root.Current.BoundingRectangle.Bottom-40){throw 'Label test clipped at desktop resolution'}
             Screenshot $root 'barcode191.png';([Windows.Automation.InvokePattern]$reader.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern)).Invoke();$read=FindWindow 'Barkod Okutma Testi';CloseWindow $read
-            $result.compactToolbarVerified=$true;$result.printerToolsMovedAndReachable=$true;$result.scannerListHeight=$scanner.Current.BoundingRectangle.Height;$result.scannerToolsReachable=$true;$result.barcodeTestsDirectlyVisible=$true
+            $result.compactToolbarVerified=$true;$result.printerToolsMovedAndReachable=$true;$result.scannerListHeight=$scannerHeight;$result.scannerToolsReachable=$true;$result.barcodeTestsDirectlyVisible=$true
             $result.hardwareScope='Layout-only Windows desktop validation. Three device pages and moved tool windows opened. No scan, install, print, network change or physical device test was run.'
             $app.Refresh();$result.mainWindowEnabled=$root.Current.IsEnabled
             if(!$root.Current.IsEnabled){throw 'Main window remained disabled after dialogs'}
