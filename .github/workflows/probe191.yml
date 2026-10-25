@@ -1,0 +1,136 @@
+name: UI resize and navigation 1.9.1
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  review:
+    runs-on: windows-2025
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: exact-original-archive-and-startup
+          path: prior
+          run-id: 40181979128
+          github-token: ${{ github.token }}
+      - name: Only resize navigation and tool state
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference='Stop'
+          $dir=Join-Path $env:RUNNER_TEMP 'exact-archive-review'
+          New-Item -ItemType Directory $dir -Force | Out-Null
+          $result=[ordered]@{errors=@();startupVerified=$false;exeExecuted=$false;priorRun=40181979128}
+          $prior=Get-Content prior/result.json -Raw|ConvertFrom-Json
+          if($prior.errors.Count -or $prior.verdict -ne 'NO_DETECTION_IN_THIS_ENVIRONMENT'){throw 'Prior exact EXE check failed'}
+          $app=$null
+          try {
+            $folder=Join-Path $dir 'application'; New-Item -ItemType Directory $folder -Force | Out-Null
+            $exe=Join-Path $folder 'TeknikServis_PRO.exe'
+            $stream=[IO.File]::Create($exe)
+            try { Get-ChildItem 'binaries/parts/*.part' | Sort-Object Name | ForEach-Object { $f=[IO.File]::OpenRead($_.FullName);try{$f.CopyTo($stream)}finally{$f.Dispose()} } } finally { $stream.Dispose() }
+            $expected=((Get-Content 'binaries/SHA256.txt') -split ' ')[0].ToLowerInvariant()
+            $result.exeSha256=(Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+            if($result.exeSha256 -ne $expected){throw 'EXE hash mismatch'}
+            if($result.exeSha256 -ne $prior.exeSha256){throw 'Probe EXE changed from scanned EXE'}
+            $app=Start-Process $exe -WorkingDirectory $folder -PassThru
+            $result.exeExecuted=$true
+            for ($i=0;$i -lt 30;$i++) {
+              Start-Sleep -Seconds 1; $app.Refresh()
+              if ($app.HasExited) { throw "Application exited before startup verification: $($app.ExitCode)" }
+              if ($app.MainWindowHandle -ne 0 -and $app.MainWindowTitle -like 'Teknik Servis PRO 1.9.1*') { $result.startupVerified=$true; $result.windowTitle=$app.MainWindowTitle; break }
+            }
+            if (!$result.startupVerified) { throw "Main WPF window not verified: $($app.MainWindowTitle)" }
+            Add-Type -AssemblyName UIAutomationClient
+            Add-Type -AssemblyName UIAutomationTypes
+            Add-Type 'using System; using System.Runtime.InteropServices; public static class NoticeCloser { [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr window,uint message,IntPtr wParam,IntPtr lParam); [DllImport("user32.dll")] public static extern int GetWindowLong(IntPtr window,int index); }'
+            $scope=[Windows.Automation.TreeScope]::Descendants
+            function FindNamed($parent,[string]$name,$kind) {
+              $c=[Windows.Automation.AndCondition]::new([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::NameProperty,$name),[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,$kind))
+              return $parent.FindFirst($scope,$c)
+            }
+            function FindWindow([string]$name) {
+              $c=[Windows.Automation.AndCondition]::new([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::NameProperty,$name),[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::Window),[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ProcessIdProperty,$app.Id))
+              for($j=0;$j -lt 120;$j++){$found=[Windows.Automation.AutomationElement]::RootElement.FindFirst($scope,$c);if($found){return $found};Start-Sleep -Milliseconds 250}
+              throw "Dialog not found: $name"
+            }
+            function Click($parent,[string]$name) {
+              $b=FindNamed $parent $name ([Windows.Automation.ControlType]::Button)
+              if(!$b){throw "Button missing: $name"}
+              ([Windows.Automation.InvokePattern]$b.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern)).Invoke()
+            }
+            function CheckModern($window) {
+              $close=$window.FindFirst($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty,'DialogClose'))
+              if(!$close){throw 'Custom dialog close control missing'}
+              $style=[NoticeCloser]::GetWindowLong([IntPtr]$window.Current.NativeWindowHandle,-16)
+              $result.customChromeVerified=$true
+            }
+            $root=[Windows.Automation.AutomationElement]::FromHandle($app.MainWindowHandle)
+            function ById($parent,[string]$id){return $parent.FindFirst($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty,$id))}
+            Add-Type -AssemblyName System.Drawing
+            function Screenshot($window,[string]$name) {
+              $bounds=$window.Current.BoundingRectangle
+              $image=[Drawing.Bitmap]::new([int]$bounds.Width,[int]$bounds.Height);$graphics=[Drawing.Graphics]::FromImage($image);$graphics.CopyFromScreen([int]$bounds.X,[int]$bounds.Y,0,0,$image.Size)
+              $image.Save((Join-Path $dir $name),[Drawing.Imaging.ImageFormat]::Png);$graphics.Dispose();$image.Dispose()
+            }
+            function CloseWindow($window){[NoticeCloser]::PostMessage([IntPtr]$window.Current.NativeWindowHandle,0x0010,[IntPtr]::Zero,[IntPtr]::Zero)|Out-Null;Start-Sleep -Milliseconds 300}
+            function WaitDone($window){for($j=0;$j -lt 480;$j++){if((ById $window 'OperationState').Current.Name -and (ById $window 'OperationState').Current.Name -ne 'İşlem devam ediyor'){return};Start-Sleep -Milliseconds 250};throw 'Bounded read-only operation did not finish'}
+            $tab=FindNamed $root 'Yazıcı, Barkod, Tarayıcı' ([Windows.Automation.ControlType]::TabItem)
+            ([Windows.Automation.SelectionItemPattern]$tab.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern)).Select();Start-Sleep -Milliseconds 300
+            for($i=0;$i -lt 3;$i++){foreach($id in @('ScannerToolsTab','BarcodeToolsTab','PrinterToolsTab')){$tab=ById $root $id;([Windows.Automation.SelectionItemPattern]$tab.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern)).Select();Start-Sleep -Milliseconds 100}}
+            $result.repeatedNavigationVerified=$true
+            $tab=ById $root 'ScannerToolsTab';([Windows.Automation.SelectionItemPattern]$tab.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern)).Select();Start-Sleep -Milliseconds 150
+            Click $root 'Tarama Ayarları';$settings=FindWindow 'Tarama ayarları'
+            $edit=$settings.FindFirst($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::Edit))
+            if(!$edit){throw 'Scan page input missing'}
+            ([Windows.Automation.ValuePattern]$edit.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern)).SetValue('3');CloseWindow $settings
+            Click $root 'Tarama Ayarları';$settings=FindWindow 'Tarama ayarları';$edit=$settings.FindFirst($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::Edit))
+            if(([Windows.Automation.ValuePattern]$edit.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern)).Current.Value -ne '3'){throw 'Scan settings lost when tool closed'}
+            CloseWindow $settings;$result.scanSettingsRetained=$true
+            $tab=ById $root 'PrinterToolsTab';([Windows.Automation.SelectionItemPattern]$tab.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern)).Select()
+            ([Windows.Automation.WindowPattern]$root.GetCurrentPattern([Windows.Automation.WindowPattern]::Pattern)).SetWindowVisualState([Windows.Automation.WindowVisualState]::Normal)
+            Add-Type '[System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)] public struct NoData{} public static class LayoutResize { [System.Runtime.InteropServices.DllImport("user32.dll")] public static extern bool MoveWindow(System.IntPtr window,int x,int y,int width,int height,bool repaint); }'
+            [LayoutResize]::MoveWindow([IntPtr]$root.Current.NativeWindowHandle,10,10,820,700,$true)|Out-Null;Start-Sleep -Milliseconds 600
+            $primary=ById $root 'PrinterOneClick';if($primary.Current.IsOffscreen -or $primary.Current.BoundingRectangle.Right -gt $root.Current.BoundingRectangle.Right-10){throw 'Printer primary action clipped after resize'}
+            Screenshot $root 'small-printer191.png';$result.smallWindowPrimaryVisible=$true
+            $tab=ById $root 'BarcodeToolsTab';([Windows.Automation.SelectionItemPattern]$tab.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern)).Select();Start-Sleep -Milliseconds 250
+            $reader=ById $root 'QuickBarcodeTest'
+            $scrolls=$root.FindAll($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::IsScrollPatternAvailableProperty,$true))
+            for($j=0;$j -lt 5 -and $reader.Current.IsOffscreen;$j++){foreach($scroll in $scrolls){try{([Windows.Automation.ScrollPattern]$scroll.GetCurrentPattern([Windows.Automation.ScrollPattern]::Pattern)).Scroll([Windows.Automation.ScrollAmount]::NoAmount,[Windows.Automation.ScrollAmount]::LargeIncrement)}catch{}};Start-Sleep -Milliseconds 150}
+            if($reader.Current.IsOffscreen){throw 'Barcode test unreachable in narrow view'}
+            ([Windows.Automation.InvokePattern]$reader.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern)).Invoke();$tool=FindWindow 'Barkod Okutma Testi';CloseWindow $tool
+            $result.narrowBarcodeAccessibleAndCancelVerified=$true
+            ([Windows.Automation.WindowPattern]$root.GetCurrentPattern([Windows.Automation.WindowPattern]::Pattern)).SetWindowVisualState([Windows.Automation.WindowVisualState]::Maximized);Start-Sleep -Milliseconds 300
+            $result.hardwareScope='Layout-only Windows desktop validation. Three device pages and moved tool windows opened. No scan, install, print, network change or physical device test was run.'
+            $app.Refresh();$result.mainWindowEnabled=$root.Current.IsEnabled
+            if(!$root.Current.IsEnabled){throw 'Main window remained disabled after dialogs'}
+            if(![NoticeCloser]::PostMessage([IntPtr]$root.Current.NativeWindowHandle,0x0010,[IntPtr]::Zero,[IntPtr]::Zero)){throw 'Main window close request failed'}
+            if (!$app.WaitForExit(10000)) {
+              $windows=[Windows.Automation.AutomationElement]::RootElement.FindAll([Windows.Automation.TreeScope]::Children,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ProcessIdProperty,$app.Id))
+              $result.remainingWindows=@($windows|ForEach-Object {$_.Current.Name})
+              throw 'Application did not close normally'
+            }
+            $result.applicationExitCode=$app.ExitCode
+            if ($app.ExitCode -ne 0) { throw 'Application exit code was not zero' }
+          } catch { $result.errors += $_.Exception.Message } finally {
+            if ($app -and !$app.HasExited) { Stop-Process -Id $app.Id -Force -ErrorAction SilentlyContinue }
+            try { Get-MpThreatDetection | ConvertTo-Json -Depth 8 | Set-Content "$dir/threat-detections.json" } catch {}
+            $result | ConvertTo-Json -Depth 8 | Tee-Object "$dir/result.json"
+
+
+          }
+          if ($result.errors.Count -or !$result.startupVerified) { exit 1 }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ui-resize-navigation191
+          path: |
+            ${{ runner.temp }}/exact-archive-review/result.json
+            ${{ runner.temp }}/exact-archive-review/scan-*.txt
+            ${{ runner.temp }}/exact-archive-review/threat-detections.json
+            ${{ runner.temp }}/exact-archive-review/*.png
+          retention-days: 14
