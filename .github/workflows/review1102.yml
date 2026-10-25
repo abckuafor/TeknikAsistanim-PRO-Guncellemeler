@@ -127,7 +127,17 @@ jobs:
             $grid=ById $root 'BrowserWizardProfiles'
             foreach($name in @('Yer imleri','Şifreler')){$box=FindNamed $grid $name ([Windows.Automation.ControlType]::CheckBox);if(!$box -or ([Windows.Automation.TogglePattern]$box.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Current.ToggleState -ne [Windows.Automation.ToggleState]::On){throw "Default data checkbox not selected: $name"}}
             $manualHtml=FindNamed $grid 'HTML aktarımı: Chrome / Default' ([Windows.Automation.ControlType]::Button);if($manualHtml -and !$manualHtml.Current.IsOffscreen){throw 'Automatic bookmark profile still exposes manual HTML action'}
+            $winPattern=[Windows.Automation.WindowPattern]$root.GetCurrentPattern([Windows.Automation.WindowPattern]::Pattern)
+            $winPattern.SetWindowVisualState([Windows.Automation.WindowVisualState]::Normal)
+            Start-Sleep -Milliseconds 200
+            $transform=[Windows.Automation.TransformPattern]$root.GetCurrentPattern([Windows.Automation.TransformPattern]::Pattern)
+            $transform.Resize(950,700);Start-Sleep -Milliseconds 300
+            $grid=ById $root 'BrowserWizardProfiles'
+            if($grid.Current.BoundingRectangle.Right -gt $root.Current.BoundingRectangle.Right){throw 'Compact browser grid overflows resized window'}
             Screenshot $root 'browser-compact.png'
+            $winPattern.SetWindowVisualState([Windows.Automation.WindowVisualState]::Maximized)
+            foreach($i in 1..2){SelectTab 'Donanım ve Sürücüler';SelectTab 'Arama Motoru Yedekleme'}
+            $result.resizeAndNavigationVerified=$true
             $allBrowser=ById $root 'SelectAll_BrowserWizardRows';$toggle=[Windows.Automation.TogglePattern]$allBrowser.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern);if($toggle.Current.ToggleState -ne [Windows.Automation.ToggleState]::On){$toggle.Toggle()};$toggle.Toggle()
             Click $root 'Şifre aktarımı: Chrome / Default';$guide=FindWindow 'Tarayıcı aktarım adımı';CloseWindow $guide;AssertNoProgress;if(!$root.Current.IsEnabled -or (ProcessWindows|Where-Object {$_.Current.Name -eq 'Resmî şifre CSV dosyasını ekle'})){throw 'Cancelling official export step opened file picker'}
             Click $root 'Şifre aktarımı: Chrome / Default';$guide=FindWindow 'Tarayıcı aktarım adımı';Click $guide 'Tamam';$picker=FindWindow 'Resmî şifre CSV dosyasını ekle';NativePath $picker $csv 'Open'
