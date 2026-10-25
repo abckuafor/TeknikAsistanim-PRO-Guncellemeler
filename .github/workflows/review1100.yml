@@ -1,0 +1,206 @@
+name: Review and publish 1.10.0
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/review1100.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  review:
+    runs-on: windows-2025
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Run synthetic backup and native preference checks
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $test=Join-Path $env:RUNNER_TEMP 'profile-checks'
+          New-Item -ItemType Directory $test -Force | Out-Null
+          $zip=Join-Path $test 'checks.zip'
+          $out=[IO.File]::Create($zip)
+          try{Get-ChildItem binaries/checks/*.part|Sort-Object Name|ForEach-Object{$f=[IO.File]::OpenRead($_.FullName);try{$f.CopyTo($out)}finally{$f.Dispose()}}}finally{$out.Dispose()}
+          if((Get-FileHash $zip).Hash.ToLowerInvariant() -ne (Get-Content binaries/checks-sha256.txt).Trim()){throw 'Check bundle hash mismatch'}
+          Expand-Archive $zip (Join-Path $test 'extracted')
+          dotnet "$test/extracted/portable/FormatBackup1100.Checks.dll" | Tee-Object "$test/portable-results.txt"
+          if($LASTEXITCODE -ne 0){throw 'Portable checks failed on Windows'}
+          Start-Service Spooler
+          if(!(Get-Printer -Name 'Microsoft Print to PDF' -ErrorAction SilentlyContinue)){Add-Printer -Name 'Microsoft Print to PDF' -DriverName 'Microsoft Print To PDF' -PortName 'PORTPROMPT:'}
+          dotnet "$test/extracted/native/NativeProfiles1100.Checks.dll" | Tee-Object "$test/native-results.txt"
+          if($LASTEXITCODE -ne 0){throw 'Native synthetic/virtual checks failed'}
+      - name: Scan exact EXE and ZIP, verify unified status window
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference='Stop'
+          $dir=Join-Path $env:RUNNER_TEMP 'exact-archive-review'
+          New-Item -ItemType Directory $dir -Force | Out-Null
+          $result=[ordered]@{verdict='NOT_SCANNED'; errors=@(); exeExecuted=$false; startupVerified=$false}
+          $app=$null
+          try {
+            if ((Get-Service WinDefend).Status -ne 'Running') { Start-Service WinDefend -ErrorAction Stop }
+            Update-MpSignature -ErrorAction Stop
+            $status=Get-MpComputerStatus
+            $result.defenderVersion=$status.AMProductVersion
+            $result.signatureVersion=$status.AntivirusSignatureVersion
+            $result.signatureUpdatedUtc=$status.AntivirusSignatureLastUpdated.ToUniversalTime().ToString('o')
+            if (!$status.AMServiceEnabled -or $status.AntivirusSignatureLastUpdated -lt (Get-Date).AddDays(-3)) { throw 'Defender or current signatures unavailable' }
+            $folder=Join-Path $dir 'application'; New-Item -ItemType Directory $folder -Force | Out-Null
+            New-Item -ItemType Directory (Join-Path $folder 'Data'),(Join-Path $folder 'Drivers') -Force|Out-Null
+            [IO.File]::WriteAllText((Join-Path $folder 'Data/fixture-preserve.txt'),'synthetic-keep-data')
+            [IO.File]::WriteAllText((Join-Path $folder 'Drivers/fixture-preserve.txt'),'synthetic-keep-drivers')
+            $exe=Join-Path $folder 'TeknikServis_PRO.exe'
+            $stream=[IO.File]::Create($exe)
+            try { Get-ChildItem 'binaries/parts/*.part' | Sort-Object Name | ForEach-Object { $f=[IO.File]::OpenRead($_.FullName);try{$f.CopyTo($stream)}finally{$f.Dispose()} } } finally { $stream.Dispose() }
+            $expected=((Get-Content 'binaries/SHA256.txt') -split ' ')[0].ToLowerInvariant()
+            $result.exeSha256=(Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+            if($result.exeSha256 -ne $expected){throw 'EXE hash mismatch'}
+            $zip=Join-Path $dir 'TeknikServis_PRO_1.10.0_EXE.zip'
+            Compress-Archive $exe $zip
+            $result.zipSha256=(Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+            $engine=Get-ChildItem "$env:ProgramData/Microsoft/Windows Defender/Platform/*/MpCmdRun.exe" | Sort-Object FullName -Descending | Select-Object -First 1
+            & $engine.FullName -Scan -ScanType 3 -File $exe -DisableRemediation 2>&1 | Tee-Object "$dir/scan-exe.txt"
+            $result.exeScanExitCode=$LASTEXITCODE
+            if($LASTEXITCODE -ne 0){throw 'EXE scan did not succeed'}
+            & $engine.FullName -Scan -ScanType 3 -File $zip -DisableRemediation 2>&1 | Tee-Object "$dir/scan-original-zip.txt"
+            $result.scanExitCode=$LASTEXITCODE
+            if ($LASTEXITCODE -ne 0) { $result.verdict='DETECTED_OR_SCAN_ERROR'; throw 'Original archive scan did not succeed' }
+            $result.verdict='NO_DETECTION_IN_THIS_ENVIRONMENT'
+            $app=Start-Process $exe -WorkingDirectory $folder -PassThru
+            $result.exeExecuted=$true
+            for ($i=0;$i -lt 30;$i++) {
+              Start-Sleep -Seconds 1; $app.Refresh()
+              if ($app.HasExited) { throw "Application exited before startup verification: $($app.ExitCode)" }
+              if ($app.MainWindowHandle -ne 0 -and $app.MainWindowTitle -like 'Teknik Servis PRO 1.10.0*') { $result.startupVerified=$true; $result.windowTitle=$app.MainWindowTitle; break }
+            }
+            if (!$result.startupVerified) { throw "Main WPF window not verified: $($app.MainWindowTitle)" }
+            Add-Type -AssemblyName UIAutomationClient
+            Add-Type -AssemblyName UIAutomationTypes
+            Add-Type 'using System; using System.Runtime.InteropServices; public static class NoticeCloser { [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr window,uint message,IntPtr wParam,IntPtr lParam); [DllImport("user32.dll")] public static extern int GetWindowLong(IntPtr window,int index); }'
+            $scope=[Windows.Automation.TreeScope]::Descendants
+            function FindNamed($parent,[string]$name,$kind) {
+              $c=[Windows.Automation.AndCondition]::new([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::NameProperty,$name),[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,$kind))
+              return $parent.FindFirst($scope,$c)
+            }
+            function FindWindow([string]$name) {
+              $c=[Windows.Automation.AndCondition]::new([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::NameProperty,$name),[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::Window),[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ProcessIdProperty,$app.Id))
+              for($j=0;$j -lt 120;$j++){$found=[Windows.Automation.AutomationElement]::RootElement.FindFirst($scope,$c);if($found){return $found};Start-Sleep -Milliseconds 250}
+              throw "Dialog not found: $name"
+            }
+            function Click($parent,[string]$name) {
+              $b=FindNamed $parent $name ([Windows.Automation.ControlType]::Button)
+              if(!$b){throw "Button missing: $name"}
+              ([Windows.Automation.InvokePattern]$b.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern)).Invoke()
+            }
+            function CheckModern($window) {
+              $close=$window.FindFirst($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty,'DialogClose'))
+              if(!$close){throw 'Custom dialog close control missing'}
+              $style=[NoticeCloser]::GetWindowLong([IntPtr]$window.Current.NativeWindowHandle,-16)
+              $result.customChromeVerified=$true
+            }
+            $root=[Windows.Automation.AutomationElement]::FromHandle($app.MainWindowHandle)
+            function ById($parent,[string]$id){return $parent.FindFirst($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty,$id))}
+            Add-Type -AssemblyName System.Drawing
+            function Screenshot($window,[string]$name) {
+              $bounds=$window.Current.BoundingRectangle
+              $image=[Drawing.Bitmap]::new([int]$bounds.Width,[int]$bounds.Height);$graphics=[Drawing.Graphics]::FromImage($image);$graphics.CopyFromScreen([int]$bounds.X,[int]$bounds.Y,0,0,$image.Size)
+              $image.Save((Join-Path $dir $name),[Drawing.Imaging.ImageFormat]::Png);$graphics.Dispose();$image.Dispose()
+            }
+            function CloseWindow($window){[NoticeCloser]::PostMessage([IntPtr]$window.Current.NativeWindowHandle,0x0010,[IntPtr]::Zero,[IntPtr]::Zero)|Out-Null;Start-Sleep -Milliseconds 300}
+            function WaitDone($window){for($j=0;$j -lt 480;$j++){if((ById $window 'OperationState').Current.Name -and (ById $window 'OperationState').Current.Name -ne 'İşlem devam ediyor'){return};Start-Sleep -Milliseconds 250};throw 'Bounded read-only operation did not finish'}
+            function SelectTab([string]$name){$tab=FindNamed $root $name ([Windows.Automation.ControlType]::TabItem);if(!$tab){throw "Tab missing: $name"};([Windows.Automation.SelectionItemPattern]$tab.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern)).Select();Start-Sleep -Milliseconds 400}
+            function SetText($element,[string]$value){if(!$element){throw 'Text element missing'};([Windows.Automation.ValuePattern]$element.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern)).SetValue($value);Start-Sleep -Milliseconds 150}
+            function Toggle($element){([Windows.Automation.TogglePattern]$element.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle();Start-Sleep -Milliseconds 200}
+            SelectTab 'Format Yedekle / Yükle'
+            $sources=ById $root 'FormatSourceList';if(!$sources){throw 'Format folder selection table missing'}
+            if($sources.FindAll($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::CheckBox)).Count -ne 8){throw 'Expected seven default folder rows'}
+            Screenshot $root 'format1100.png'
+            $fixture=Join-Path $dir 'synthetic';New-Item -ItemType Directory $fixture -Force|Out-Null
+            $csv=Join-Path $fixture 'manual.csv';[IO.File]::WriteAllText($csv,"name,url,username,password`nFixture,https://example.invalid,synthetic,not-a-real-secret")
+            $vault=Join-Path $fixture 'ui-cancelled.tsbrowser'
+            $chrome=Join-Path $env:LOCALAPPDATA 'Google/Chrome/User Data/Default';New-Item -ItemType Directory $chrome -Force|Out-Null
+            SelectTab 'Arama Motoru Yedekleme'
+            Click $root 'Tarayıcıları Listele';Start-Sleep -Seconds 2
+            $list=ById $root 'BrowserProfileList';$items=$list.FindAll($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::ListItem));if($items.Count -lt 1){throw 'Synthetic Chrome discovery missing'}
+            ([Windows.Automation.SelectionItemPattern]$items[0].GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern)).Select()
+            SetText (ById $root 'BrowserBackupSource') $csv;SetText (ById $root 'BrowserBackupDestination') $vault
+            $consent=ById $root 'BrowserBackupConsent';$save=ById $root 'BrowserBackupSave'
+            if(([Windows.Automation.TogglePattern]$consent.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Current.ToggleState -ne [Windows.Automation.ToggleState]::Off -or $save.Current.IsEnabled){throw 'Consent must be unchecked and continue disabled'}
+            Toggle $consent;if(!$save.Current.IsEnabled){throw 'Approved selected scope did not enable continue'}
+            SetText (ById $root 'BrowserBackupDestination') ($vault+'.changed');if($save.Current.IsEnabled){throw 'Destination change failed to reset consent'}
+            Toggle $consent;Click $root 'Onayı İptal Et';if($save.Current.IsEnabled -or (Test-Path $vault) -or (Test-Path ($vault+'.changed'))){throw 'Cancel created export or retained consent'}
+            Screenshot $root 'browser1100.png'
+            for($cycle=0;$cycle -lt 2;$cycle++){SelectTab 'Donanım ve Sürücüler';SelectTab 'Yazıcı, Barkod, Tarayıcı';SelectTab 'Format Yedekle / Yükle';SelectTab 'Arama Motoru Yedekleme'}
+            if($save.Current.IsEnabled){throw 'Navigation retained cancelled consent'}
+            SelectTab 'Yazıcı, Barkod, Tarayıcı'
+            Click $root 'Diğer Araçlar';$tools=FindWindow 'Cihaz ve araştırma araçları';Click $tools 'Cihaz Tercih Profilleri';$profiles=FindWindow 'Cihaz tercih profilleri';CheckModern $profiles
+            if(!(ById $profiles 'ProfileSerial') -or !(ById $profiles 'ProfileIdentityConfirmed') -or !(ById $profiles 'SavedDeviceProfiles')){throw 'Profile identity/version UI missing'}
+            if(([Windows.Automation.TogglePattern](ById $profiles 'ProfileIdentityConfirmed').GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Current.ToggleState -ne [Windows.Automation.ToggleState]::Off){throw 'Manual device confirmation must start unchecked'}
+            Screenshot $profiles 'profiles1100.png';CloseWindow $profiles;CloseWindow $tools
+            $transform=[Windows.Automation.TransformPattern]$root.GetCurrentPattern([Windows.Automation.TransformPattern]::Pattern)
+            $windowPattern=[Windows.Automation.WindowPattern]$root.GetCurrentPattern([Windows.Automation.WindowPattern]::Pattern);$windowPattern.SetWindowVisualState([Windows.Automation.WindowVisualState]::Normal);Start-Sleep -Milliseconds 300;$transform.Resize(900,720);Start-Sleep -Milliseconds 500
+            SelectTab 'Format Yedekle / Yükle';if((ById $root 'FormatSourceList').Current.BoundingRectangle.Width -lt 350){throw 'Format content not responsive'};Screenshot $root 'narrow1100.png'
+            $windowPattern.SetWindowVisualState([Windows.Automation.WindowVisualState]::Maximized)
+            $result.sevenFolderDefaults=$true;$result.consentUncheckedAndDisabled=$true;$result.consentScopeResetAndCancel=$true;$result.repeatedNavigation=$true;$result.deviceIdentityGateVisible=$true;$result.resizeVerified=$true
+            $result.hardwareScope='Synthetic files and official-export fixtures only; current-user DPAPI roundtrip and read-only virtual Microsoft Print to PDF preference capture. No physical printer/scanner, firmware calibration, credential database, customer files or network repair used.'
+            $app.Refresh();$result.mainWindowEnabled=$root.Current.IsEnabled
+            if(!$root.Current.IsEnabled){throw 'Main window remained disabled after dialogs'}
+            if(![NoticeCloser]::PostMessage([IntPtr]$root.Current.NativeWindowHandle,0x0010,[IntPtr]::Zero,[IntPtr]::Zero)){throw 'Main window close request failed'}
+            if (!$app.WaitForExit(10000)) {
+              $windows=[Windows.Automation.AutomationElement]::RootElement.FindAll([Windows.Automation.TreeScope]::Children,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ProcessIdProperty,$app.Id))
+              $result.remainingWindows=@($windows|ForEach-Object {$_.Current.Name})
+              throw 'Application did not close normally'
+            }
+            if([IO.File]::ReadAllText((Join-Path $folder 'Data/fixture-preserve.txt')) -ne 'synthetic-keep-data' -or [IO.File]::ReadAllText((Join-Path $folder 'Drivers/fixture-preserve.txt')) -ne 'synthetic-keep-drivers'){throw 'Existing Data/Drivers sentinel changed'}
+            $result.existingDataDriversPreserved=$true
+            $result.applicationExitCode=$app.ExitCode
+            if ($app.ExitCode -ne 0) { throw 'Application exit code was not zero' }
+          } catch { $result.errors += $_.Exception.Message } finally {
+            if ($app -and !$app.HasExited) { Stop-Process -Id $app.Id -Force -ErrorAction SilentlyContinue }
+            try { Get-MpThreatDetection | ConvertTo-Json -Depth 8 | Set-Content "$dir/threat-detections.json" } catch {}
+            $result | ConvertTo-Json -Depth 8 | Tee-Object "$dir/result.json"
+
+
+          }
+          if ($result.verdict -ne 'NO_DETECTION_IN_THIS_ENVIRONMENT' -or !$result.startupVerified -or $result.errors.Count) { exit 1 }
+      - name: Publish only after verified scan and startup
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $ErrorActionPreference='Stop'
+          $dir=Join-Path $env:RUNNER_TEMP 'exact-archive-review'
+          $r=Get-Content "$dir/result.json" | ConvertFrom-Json
+          if($r.verdict -ne 'NO_DETECTION_IN_THIS_ENVIRONMENT' -or !$r.startupVerified -or $r.errors.Count){throw 'Review gate failed'}
+          $exe=Join-Path $dir 'application/TeknikServis_PRO.exe'
+          $legacy=Join-Path $dir 'TeknikAsistanim_PRO.exe';Copy-Item $exe $legacy
+          gh release create v1.10.0 --draft --title 'Teknik Servis PRO 1.10.0' --notes-file binaries/release-notes.md
+          if($LASTEXITCODE -ne 0){throw 'Draft release creation failed; no existing release overwritten'}
+          gh release upload v1.10.0 $exe $legacy "$dir/TeknikServis_PRO_1.10.0_EXE.zip" "$dir/result.json"
+          if($LASTEXITCODE -ne 0){throw 'Upload failed'}
+          gh api "repos/$env:GH_REPO/releases?per_page=30" > "$dir/releases.json"
+          $release=(Get-Content "$dir/releases.json" | ConvertFrom-Json) | Where-Object tag_name -eq 'v1.10.0'
+          foreach($name in @('TeknikServis_PRO.exe','TeknikAsistanim_PRO.exe')){
+            $a=$release.assets | Where-Object name -eq $name
+            if($a.digest.ToLowerInvariant() -ne ('sha256:'+$r.exeSha256)){throw 'Uploaded EXE digest mismatch'}
+          }
+          $z=$release.assets | Where-Object name -eq 'TeknikServis_PRO_1.10.0_EXE.zip'
+          if($z.digest.ToLowerInvariant() -ne ('sha256:'+$r.zipSha256)){throw 'Uploaded ZIP digest mismatch'}
+          Write-Output 'Verified draft ready; publication follows visual screenshot review.'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: exact-original-archive-and-startup
+          path: |
+            ${{ runner.temp }}/exact-archive-review/result.json
+            ${{ runner.temp }}/exact-archive-review/scan-*.txt
+            ${{ runner.temp }}/exact-archive-review/threat-detections.json
+            ${{ runner.temp }}/exact-archive-review/*.png
+            ${{ runner.temp }}/profile-checks/*-results.txt
+          retention-days: 14
