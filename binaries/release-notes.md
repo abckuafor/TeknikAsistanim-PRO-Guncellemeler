@@ -1,6 +1,6 @@
-Teknik Servis PRO 1.10.4
-- Tam genişlikte tarayıcı listesi, liste/ayarlar arasında sürüklenebilir ayırıcı.
-- Konum ve parola alanları dengelendi; açılır ayarlar bölümü kapalı başlar, liste daha fazla yer kullanır.
-- Satır HTML/CSV düğmeleri kaldırıldı; seçili profilleri hazırlama tek akışta.
-- Yer imleri erişilebilen profillerden otomatik. Şifrelerde müşterinin resmî dışa aktarımı/OS onayı ve CSV seçimi hâlâ gereklidir; sessiz şifre çıkarımı yapılmaz.
-- Onay, parola ve mevcut veri korumaları devam eder.
+Teknik Servis PRO 1.10.5
+- Üç ayrı ekran: tarayıcı seçimi, yedek ayarları, işlem sonucu.
+- Geri yükleme: yedek dosyasını seç, parolayı gir, sonucu gör.
+- Liste tüm içerik alanını kullanır; iç içe açılır ayarlar kaldırıldı.
+- Onay ve şifreleme korumaları, Data/Drivers ve güncelleme kimliği korunur.
+- Şifreler için resmî dışa aktarım ve kullanıcı adımları devam eder.
