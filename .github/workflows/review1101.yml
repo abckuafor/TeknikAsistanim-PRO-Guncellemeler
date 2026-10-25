@@ -117,9 +117,10 @@ jobs:
             function SetValueById([string]$id,[string]$value){$element=ById $root $id;if(!$element){throw "Missing input: $id"};([Windows.Automation.ValuePattern]$element.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern)).SetValue($value);Start-Sleep -Milliseconds 100}
             function WaitWork([bool]$expectError=$false){$seenError=$false;for($n=0;$n -lt 240;$n++){foreach($w in (ProcessWindows)){$name=$w.Current.Name;if($name -in @('İşlem tamamlandı','İşlem tamamlanamadı')){if($name -eq 'İşlem tamamlanamadı'){$seenError=$true};$ok=FindNamed $w 'Tamam' ([Windows.Automation.ControlType]::Button);if($ok){([Windows.Automation.InvokePattern]$ok.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern)).Invoke()}}};Start-Sleep -Milliseconds 200;$footer=ById $root 'MainFooterStatus';if($footer.Current.Name.StartsWith('Hazır') -and $root.Current.IsEnabled){foreach($w in (ProcessWindows|Where-Object {$_.Current.Name -eq 'İşlem Durumu'})){$state=ById $w 'OperationState';if($state -and $state.Current.Name -eq 'İşlem tamamlanamadı'){$seenError=$true};CloseWindow $w};if($expectError -ne $seenError){throw ('Unexpected operation error state: '+$seenError)};return}};throw 'Operation failed to release busy state within 48 seconds'}
             function GridPattern{return [Windows.Automation.GridPattern](ById $root 'FormatSourceList').GetCurrentPattern([Windows.Automation.GridPattern]::Pattern)}
-            function SourceRow([int]$index){$grid=ById $root 'FormatSourceList';try{$container=[Windows.Automation.ItemContainerPattern]$grid.GetCurrentPattern([Windows.Automation.ItemContainerPattern]::Pattern);$item=$null;for($i=0;$i -le $index;$i++){$item=$container.FindItemByProperty($item,0,$null)};if(!$item){throw 'Item provider returned no row'};try{([Windows.Automation.VirtualizedItemPattern]$item.GetCurrentPattern([Windows.Automation.VirtualizedItemPattern]::Pattern)).Realize()}catch{};try{([Windows.Automation.ScrollItemPattern]$item.GetCurrentPattern([Windows.Automation.ScrollItemPattern]::Pattern)).ScrollIntoView()}catch{};Start-Sleep -Milliseconds 300;return $item}catch{$scroll=[Windows.Automation.ScrollPattern]$grid.GetCurrentPattern([Windows.Automation.ScrollPattern]::Pattern);if($scroll.Current.VerticallyScrollable){$scroll.SetScrollPercent(-1,100)};Start-Sleep -Milliseconds 300;if($index -ne (GridPattern).Current.RowCount-1){throw 'Fallback selection requires final known fixture row'};$rows=$grid.FindAll($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::DataItem));return $rows[$rows.Count-1]}}
-            function SelectSource([int]$index){$row=SourceRow $index;$check=$row.FindFirst($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::CheckBox));if(!$check){throw 'Source business checkbox missing'};([Windows.Automation.TogglePattern]$check.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle();Start-Sleep -Milliseconds 150}
-            function SelectSourceRow([int]$index){$row=SourceRow $index;([Windows.Automation.SelectionItemPattern]$row.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern)).Select();Start-Sleep -Milliseconds 150}
+            function FocusLastSource([int]$index){$grid=ById $root 'FormatSourceList';if($index -ne (GridPattern).Current.RowCount-1){throw 'Expected final synthetic fixture row'};[NoticeCloser]::SetForegroundWindow([IntPtr]$root.Current.NativeWindowHandle)|Out-Null;$grid.SetFocus();[Windows.Forms.SendKeys]::SendWait('^{END}');Start-Sleep -Milliseconds 350;return $grid}
+            function SelectSource([int]$index){$grid=FocusLastSource $index;$boxes=$grid.FindAll($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty,'SelectRow_FormatSources'));if($boxes.Count -lt 1){throw 'Realized source checkbox missing'};$check=$boxes[$boxes.Count-1];([Windows.Automation.TogglePattern]$check.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle();Start-Sleep -Milliseconds 150}
+            function SelectSourceRow([int]$index){$null=FocusLastSource $index}
+            $result.phase='source remove and selection'
             SelectSourceRow 8;Click $root 'Ek Kaynağı Listeden Kaldır';if((GridPattern).Current.RowCount -ne $initialRows+1 -or !(Test-Path $selected)){throw 'Remove source did not preserve original folder'}
             $all=ById $root 'SelectAll_FormatSources';([Windows.Automation.TogglePattern]$all.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle();Start-Sleep -Milliseconds 200
             if(([Windows.Automation.TogglePattern]$all.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Current.ToggleState -ne [Windows.Automation.ToggleState]::Off){throw 'Uncheck all failed'}
@@ -127,24 +128,30 @@ jobs:
             ([Windows.Automation.TogglePattern]$all.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle()
             SelectSource 7
             $target=Join-Path $fixtures 'backups';$restore=Join-Path $fixtures 'new-user';$empty=Join-Path $fixtures 'empty';New-Item -ItemType Directory $target,$restore,$empty -Force|Out-Null
+            $result.phase='choose targets'
             Click $root 'Hedef Seç…';$picker=FindWindow 'Formatlanmayacak harici disk / yedek hedefi seçin';NativePath $picker $target 'Select Folder'
             Click $root 'Geri Yükleme Hedefi…';$picker=FindWindow 'Yeni kullanıcı klasörü / geri yükleme hedefi seçin';NativePath $picker $restore 'Select Folder'
+            $result.phase='empty catalog'
             Click $root 'Bu Bilgisayarın Yedeklerini Bul';$picker=FindWindow 'Yedeklerin bulunduğu klasörü seçin';NativePath $picker $empty 'Select Folder' $true;WaitWork
             if(!(ById $root 'FormatExplanation').Current.Name.Contains('bulunamadı')){throw 'Empty catalog lacks useful explanation'}
             Click $root 'Seçili Yedeği Geri Yükle';WaitWork $true
+            $result.phase='invalid target and preflight'
             SetValueById 'FormatTargetPath' (Join-Path $fixtures 'missing-target');Click $root 'Ön Kontrol';WaitWork $true
             SetValueById 'FormatTargetPath' $target
             SetValueById 'FormatExclusions' $file;Click $root 'Ön Kontrol';WaitWork
             if(!(ById $root 'FormatExplanation').Current.Name.Contains('0 dosya')){throw 'Exclusion did not apply in preflight'}
             SetValueById 'FormatExclusions' '';Click $root 'Ön Kontrol';WaitWork
             if(!(ById $root 'FormatExplanation').Current.Name.Contains('1 dosya')){throw 'Preflight selected unintended sources'}
+            $result.phase='ACL denied backup'
             $denied=Join-Path $fixtures 'denied-target';New-Item -ItemType Directory $denied -Force|Out-Null;$savedAcl=Get-Acl $denied
             try{$restricted=Get-Acl $denied;$sid=[Security.Principal.WindowsIdentity]::GetCurrent().User;$rule=[Security.AccessControl.FileSystemAccessRule]::new($sid,[Security.AccessControl.FileSystemRights]::Write,[Security.AccessControl.InheritanceFlags]'ContainerInherit,ObjectInherit',[Security.AccessControl.PropagationFlags]::None,[Security.AccessControl.AccessControlType]::Deny);$restricted.AddAccessRule($rule);Set-Acl $denied $restricted;SetValueById 'FormatTargetPath' $denied;Click $root 'Seçilenleri Yedekle';$confirm=FindWindow 'İşlem onayı';Click $confirm 'Devam Et';WaitWork $true;if((Get-ChildItem $denied -Force).Count -ne 0 -or !(Test-Path $file)){throw 'Denied target changed data'}}finally{Set-Acl $denied $savedAcl}
             SetValueById 'FormatTargetPath' $target
             Click $root 'Seçilenleri Yedekle';$confirm=FindWindow 'İşlem onayı';Click $confirm 'Devam Et';WaitWork
+            $result.phase='complete backup'
             $manifests=@(Get-ChildItem $target -Filter manifest.json -Recurse);if($manifests.Count -ne 1 -or (Get-Content $manifests[0].FullName|ConvertFrom-Json).Status -ne 'Complete'){throw 'Synthetic backup was not complete'}
             Click $root 'Bu Bilgisayarın Yedeklerini Bul';$picker=FindWindow 'Yedeklerin bulunduğu klasörü seçin';NativePath $picker $target 'Select Folder' $true;WaitWork
             $catalog=ById $root 'FormatBackupCatalog';if($catalog.FindAll($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::ListItem)).Count -ne 1){throw 'Completed backup not found in catalog'}
+            $result.phase='restore integrity'
             Click $root 'Seçili Yedeği Geri Yükle';$confirm=FindWindow 'İşlem onayı';Click $confirm 'Devam Et';WaitWork
             $restored=Get-ChildItem $restore -Filter selected-file.txt -Recurse|Select-Object -First 1;if(!$restored -or (Get-FileHash $restored.FullName).Hash -ne (Get-FileHash $file).Hash){throw 'Restore to new user failed integrity check'}
             [IO.File]::WriteAllText($restored.FullName,'existing fixture must survive');$keep=ById $root 'FormatKeepBoth';([Windows.Automation.TogglePattern]$keep.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle()
@@ -152,10 +159,12 @@ jobs:
             if([IO.File]::ReadAllText($restored.FullName) -ne 'existing fixture must survive' -or !(ById $root 'FormatExplanation').Current.Name.Contains('1 çakışma')){throw 'Skip-conflict restore overwrote existing file or misreported result'}
             ([Windows.Automation.TogglePattern]$keep.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle();Click $root 'Seçili Yedeği Geri Yükle';$confirm=FindWindow 'İşlem onayı';Click $confirm 'Devam Et';WaitWork
             if(!(Get-ChildItem $restore -Filter '*Yedek*' -Recurse|Where-Object {!$_.PSIsContainer}) -or [IO.File]::ReadAllText($restored.FullName) -ne 'existing fixture must survive'){throw 'KeepBoth conflict restore failed'}
+            $result.phase='cancel backup'
             $large=Join-Path $fixtures 'cancel-fixture.bin';$stream=[IO.File]::Create($large);try{$stream.SetLength(268435456)}finally{$stream.Dispose()}
             Click $root 'Dosya Ekle…';$picker=FindWindow 'Yedeğe eklenecek dosyalar';NativePath $picker $large 'Open'
             Click $root 'Seçilenleri Yedekle';$confirm=FindWindow 'İşlem onayı';Click $confirm 'Devam Et';Start-Sleep -Milliseconds 100;Click $root 'Yedekleme / Geri Yüklemeyi Durdur';WaitWork
             if(!(ById $root 'FormatExplanation').Current.Name.Contains('iptal') -or (Get-Item $large).Length -ne 268435456){throw 'Backup cancel failed or source changed'}
+            $result.phase='invalid catalog'
             $invalid=Join-Path $fixtures 'invalid-backup';New-Item -ItemType Directory $invalid -Force|Out-Null;[IO.File]::WriteAllText((Join-Path $invalid 'manifest.json'),'invalid synthetic manifest')
             Click $root 'Bu Bilgisayarın Yedeklerini Bul';$picker=FindWindow 'Yedeklerin bulunduğu klasörü seçin';NativePath $picker $invalid 'Select Folder' $true;WaitWork $true
             Click $root 'Klasörleri Listele';Start-Sleep -Milliseconds 200;if((GridPattern).Current.RowCount -ne 7){throw 'Reset known folder listing failed'}
@@ -177,7 +186,7 @@ jobs:
             $result.existingDataDriversPreserved=$true
             $result.applicationExitCode=$app.ExitCode
             if ($app.ExitCode -ne 0) { throw 'Application exit code was not zero' }
-          } catch { $result.errors += $_.Exception.Message;try{if($root){Screenshot $root 'failure1100.png'}}catch{} } finally {
+          } catch { $result.errors += $_.Exception.Message;$result.failureStack=$_.ScriptStackTrace;$result.failurePosition=$_.InvocationInfo.PositionMessage;try{if($root){Screenshot $root 'failure1100.png'}}catch{} } finally {
             if ($app -and !$app.HasExited) { Stop-Process -Id $app.Id -Force -ErrorAction SilentlyContinue }
             try { Get-MpThreatDetection | ConvertTo-Json -Depth 8 | Set-Content "$dir/threat-detections.json" } catch {}
             $result | ConvertTo-Json -Depth 8 | Tee-Object "$dir/result.json"
@@ -235,3 +244,5 @@ jobs:
 # Traverse native child handles for the standard filename edit hosted inside ComboBoxEx.
 
 # Realize virtualized DataGrid rows; read errors from the unified result window.
+
+# Use keyboard navigation to realize the final fixture row, avoiding WPF virtualized Grid.GetItem defects.
