@@ -1,3 +1,4 @@
+# Settings collapse by default to give profiles the full available height.
 # Full-width list with draggable split and larger default list area.
 name: Review and publish 1.10.4
 on:
@@ -138,6 +139,7 @@ jobs:
             $rowCheck=ById $fixtureRow 'SelectRow_BrowserWizardRows';([Windows.Automation.TogglePattern]$rowCheck.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle()
             Click $root 'Seçili Tarayıcıları Hazırla';$guide=FindWindow 'Chrome / Default — aktarım adımı';CloseWindow $guide;AssertNoProgress;if(!$root.Current.IsEnabled -or (ProcessWindows|Where-Object {$_.Current.Name -eq 'Resmî şifre CSV dosyasını ekle'})){throw 'Cancelling official export step opened file picker'}
             Click $root 'Seçili Tarayıcıları Hazırla';$guide=FindWindow 'Chrome / Default — aktarım adımı';Click $guide 'Tamam';$picker=FindWindow 'Resmî şifre CSV dosyasını ekle';NativePath $picker $csv 'Open'
+            $settingsExpander=ById $root 'BrowserWizardSettingsExpander';([Windows.Automation.ExpandCollapsePattern]$settingsExpander.GetCurrentPattern([Windows.Automation.ExpandCollapsePattern]::Pattern)).Expand();Start-Sleep -Milliseconds 200
             $package=Join-Path $fixtures 'unified-browser.tsbrowser';SetValueById 'BrowserWizardPackagePath' $package
             function SetTestPassword([string]$id,[string]$value){$box=ById $root $id;try{([Windows.Automation.ValuePattern]$box.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern)).SetValue($value)}catch{[NoticeCloser]::SetForegroundWindow([IntPtr]$root.Current.NativeWindowHandle)|Out-Null;$box.SetFocus();[Windows.Forms.SendKeys]::SendWait('^a');[Windows.Forms.SendKeys]::SendWait($value)};Start-Sleep -Milliseconds 100}
             function WizardConsent{([Windows.Automation.TogglePattern](ById $root 'BrowserBackupConsent').GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle();Start-Sleep -Milliseconds 150}
