@@ -67,7 +67,13 @@ jobs:
               if ($app.HasExited) { throw "Application exited before startup verification: $($app.ExitCode)" }
               if ($app.MainWindowHandle -ne 0 -and $app.MainWindowTitle -like 'Teknik Servis PRO 1.10.2*') { $result.startupVerified=$true; $result.windowTitle=$app.MainWindowTitle; break }
             }
-            if (!$result.startupVerified) { throw "Main WPF window not verified: $($app.MainWindowTitle)" }
+            if (!$result.startupVerified) {
+              Add-Type -AssemblyName UIAutomationClient
+              Add-Type -AssemblyName UIAutomationTypes
+              $failureWindow=[Windows.Automation.AutomationElement]::FromHandle($app.MainWindowHandle)
+              $result.startupDialogText=@($failureWindow.FindAll([Windows.Automation.TreeScope]::Descendants,[Windows.Automation.Condition]::TrueCondition)|ForEach-Object {$_.Current.Name})
+              throw "Main WPF window not verified: $($app.MainWindowTitle)"
+            }
             Add-Type -AssemblyName UIAutomationClient
             Add-Type -AssemblyName UIAutomationTypes
             Add-Type 'using System; using System.Runtime.InteropServices; public static class NoticeCloser { [DllImport("user32.dll")] public static extern bool SetCursorPos(int x,int y); [DllImport("user32.dll")] public static extern void mouse_event(uint flags,uint x,uint y,uint data,UIntPtr extra); public delegate bool ChildProc(IntPtr h,IntPtr p); [DllImport("user32.dll")] public static extern bool EnumChildWindows(IntPtr h,ChildProc callback,IntPtr p); [DllImport("user32.dll",CharSet=CharSet.Unicode)] public static extern int GetClassName(IntPtr h,System.Text.StringBuilder name,int max); [DllImport("user32.dll")] public static extern int GetDlgCtrlID(IntPtr h); [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h); public static IntPtr FileNameEdit(IntPtr h){IntPtr last=IntPtr.Zero,preferred=IntPtr.Zero;EnumChildWindows(h,(child,p)=>{var name=new System.Text.StringBuilder(256);GetClassName(child,name,256);if(name.ToString()=="Edit"&&IsWindowVisible(child)){last=child;if(GetDlgCtrlID(child)==1001||GetDlgCtrlID(child)==1148)preferred=child;}return true;},IntPtr.Zero);return preferred!=IntPtr.Zero?preferred:last;} [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr window,uint message,IntPtr wParam,IntPtr lParam); [DllImport("user32.dll")] public static extern IntPtr GetDlgItem(IntPtr h,int id); [DllImport("user32.dll",CharSet=CharSet.Unicode)] public static extern IntPtr SendMessage(IntPtr h,uint message,IntPtr wParam,string text); [DllImport("user32.dll")] public static extern IntPtr GetWindow(IntPtr h,uint cmd); [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h); [DllImport("user32.dll")] public static extern int GetWindowLong(IntPtr window,int index); }'
