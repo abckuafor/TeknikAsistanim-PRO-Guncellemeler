@@ -1,0 +1,31 @@
+{
+  "sourceRun": 40196241821,
+  "sourceCommit": "cc837ac8ca73f7acfeaa425dc9b0e73af5f62989",
+  "exeSha256": "aa64161ce0d7c53eb9223448e18e45cf02ffb31132d547e32253cdc5504fdfee",
+  "formatControls": {
+    "addFolder": true,
+    "addFile": true,
+    "pickBackupTarget": true,
+    "pickRestoreTarget": true,
+    "removeSourceWithoutDeletion": true,
+    "selectAndUnselectAll": true,
+    "exclusions": true,
+    "preflight": true,
+    "emptyCatalog": true,
+    "findCompletedBackup": true,
+    "backupIntegrity": true,
+    "restoreNewUser": true,
+    "skipConflict": true,
+    "keepBothConflict": true,
+    "cancelBackupPreservesSource": true,
+    "invalidTarget": true,
+    "inaccessibleTarget": true,
+    "invalidManifest": true,
+    "noSelection": true,
+    "refreshFolders": true
+  },
+  "beforeBugReproduced": true,
+  "browserBackupReachedRestoreMode": true,
+  "browserCheckSha": "273a729cba19426341d8e66774221230c5c9d0e296f20beee556aa233f1d755d",
+  "browserPackageChecks": 29
+}

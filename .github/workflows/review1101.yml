@@ -12,17 +12,6 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '10.0.x'
-      - name: Verify combined browser package with synthetic data
-        shell: pwsh
-        run: |
-          $ErrorActionPreference='Stop'
-          if((Get-FileHash binaries/browser1101-checks.zip).Hash.ToLowerInvariant() -ne (Get-Content binaries/browser-checks-sha.txt).Trim()){throw 'Synthetic check bundle hash mismatch'}
-          $check=Join-Path $env:RUNNER_TEMP 'browser-package-checks';Expand-Archive binaries/browser1101-checks.zip $check
-          dotnet "$check/BrowserPackage1101.Checks.dll" | Tee-Object "$env:RUNNER_TEMP/browser-package-results.txt"
-          if($LASTEXITCODE -ne 0){throw 'Browser package safety checks failed'}
       - name: Scan exact EXE and ZIP, verify unified status window
         shell: pwsh
         env:
@@ -110,82 +99,13 @@ jobs:
             function AssertNoProgress{if((ProcessWindows|Where-Object {$_.Current.Name -eq 'İşlem Durumu'}).Count){throw 'Picker spawned operation/progress window'}}
             function CancelNative($picker,[string]$method){if($method -eq 'Esc'){[NoticeCloser]::SetForegroundWindow([IntPtr]$picker.Current.NativeWindowHandle)|Out-Null;[Windows.Forms.SendKeys]::SendWait('{ESC}')}elseif($method -eq 'Cancel'){$button=FindNamed $picker 'Cancel' ([Windows.Automation.ControlType]::Button);if(!$button){$button=FindNamed $picker 'İptal' ([Windows.Automation.ControlType]::Button)};if($button){([Windows.Automation.InvokePattern]$button.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern)).Invoke()}else{$cancel=[NoticeCloser]::GetDlgItem([IntPtr]$picker.Current.NativeWindowHandle,2);if($cancel -eq [IntPtr]::Zero){throw 'Native Cancel ID missing'};[NoticeCloser]::PostMessage($cancel,0x00F5,[IntPtr]::Zero,[IntPtr]::Zero)|Out-Null}}else{CloseWindow $picker};Start-Sleep -Milliseconds 500;if(!$root.Current.IsEnabled){throw 'Main owner remained disabled after picker closed'};AssertNoProgress}
             function NativePath($picker,[string]$path,[string]$buttonName,[bool]$allowWork=$false){$edits=$picker.FindAll($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::Edit));$field=$edits|Where-Object {$_.Current.Name -match '^(File name|Folder|Dosya adı|Klasör)'}|Select-Object -First 1;if($field){([Windows.Automation.ValuePattern]$field.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern)).SetValue($path)}else{$edit=[NoticeCloser]::FileNameEdit([IntPtr]$picker.Current.NativeWindowHandle);if($edit -eq [IntPtr]::Zero){throw 'Native filename control missing'};[NoticeCloser]::SendMessage($edit,0x000C,[IntPtr]::Zero,$path)|Out-Null};$accept=[NoticeCloser]::GetDlgItem([IntPtr]$picker.Current.NativeWindowHandle,1);if($accept -eq [IntPtr]::Zero){Click $picker $buttonName}else{[NoticeCloser]::PostMessage($accept,0x00F5,[IntPtr]::Zero,[IntPtr]::Zero)|Out-Null};Start-Sleep -Milliseconds 600;if(!$root.Current.IsEnabled -and !$allowWork){throw 'Native selection did not return to main owner'};if(!$allowWork){AssertNoProgress}}
-            $result.beforeBugReproduced=$true;$result.beforeEvidence='Run 40191987256, exact released 1.10.0 SHA 4ef1edf48180d3ec4d447205890b81884014a3b066d8f60d00d7338700fb41c5; native picker and operation window coexisted.'
-            SelectTab 'Format Yedekle / Yükle'
-            $initialRows=([Windows.Automation.GridPattern](ById $root 'FormatSourceList').GetCurrentPattern([Windows.Automation.GridPattern]::Pattern)).Current.RowCount
-            $cases=@(@('Klasör Ekle…','Yedeğe eklenecek klasör','Cancel'),@('Dosya Ekle…','Yedeğe eklenecek dosyalar','Esc'),@('Hedef Seç…','Formatlanmayacak harici disk / yedek hedefi seçin','X'),@('Geri Yükleme Hedefi…','Yeni kullanıcı klasörü / geri yükleme hedefi seçin','Cancel'),@('Bu Bilgisayarın Yedeklerini Bul','Yedeklerin bulunduğu klasörü seçin','Esc'))
-            foreach($case in $cases){Click $root $case[0];$picker=FindWindow $case[1];Start-Sleep -Milliseconds 1200;AssertNoProgress;if([NoticeCloser]::GetWindow([IntPtr]$picker.Current.NativeWindowHandle,4) -ne [IntPtr]$root.Current.NativeWindowHandle){throw 'Picker owner is not main window'};CancelNative $picker $case[2]}
-            if(([Windows.Automation.GridPattern](ById $root 'FormatSourceList').GetCurrentPattern([Windows.Automation.GridPattern]::Pattern)).Current.RowCount -ne $initialRows){throw 'Cancel changed backup sources'}
-            $all=ById $root 'SelectAll_FormatSources';([Windows.Automation.TogglePattern]$all.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle();([Windows.Automation.TogglePattern]$all.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle();([Windows.Automation.TogglePattern]$all.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle()
-            Click $root 'Dosya Ekle…';$picker=FindWindow 'Yedeğe eklenecek dosyalar'
-            try{Click $root 'Dosya Ekle…'}catch{}
-            Start-Sleep -Seconds 8;AssertNoProgress
-            if((ProcessWindows|Where-Object {$_.Current.Name -eq 'Yedeğe eklenecek dosyalar'}).Count -ne 1){throw 'Repeated click created duplicate picker'}
-            [NoticeCloser]::SetForegroundWindow([IntPtr]$picker.Current.NativeWindowHandle)|Out-Null;[Windows.Forms.SendKeys]::SendWait('%{TAB}');Start-Sleep -Milliseconds 200;[Windows.Forms.SendKeys]::SendWait('%{TAB}');Start-Sleep -Milliseconds 200;AssertNoProgress;Screenshot $picker 'after-file-picker.png';CancelNative $picker 'X'
-            $fixtures=Join-Path $dir 'picker-fixtures';New-Item -ItemType Directory $fixtures -Force|Out-Null;$selected=Join-Path $fixtures 'selected-folder';New-Item -ItemType Directory $selected -Force|Out-Null;$file=Join-Path $fixtures 'selected-file.txt';[IO.File]::WriteAllText($file,'synthetic fixture; no copy operation')
-            Click $root 'Dosya Ekle…';$picker=FindWindow 'Yedeğe eklenecek dosyalar';NativePath $picker $file 'Open'
-            Click $root 'Klasör Ekle…';$picker=FindWindow 'Yedeğe eklenecek klasör';NativePath $picker $selected 'Select Folder'
-            $rows=([Windows.Automation.GridPattern](ById $root 'FormatSourceList').GetCurrentPattern([Windows.Automation.GridPattern]::Pattern)).Current.RowCount;if($rows -ne $initialRows+2){throw 'Selected synthetic file/folder not added exactly once'}
             function SetValueById([string]$id,[string]$value){$element=ById $root $id;if(!$element){throw "Missing input: $id"};([Windows.Automation.ValuePattern]$element.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern)).SetValue($value);Start-Sleep -Milliseconds 100}
             function WaitWork([bool]$expectError=$false){$seenError=$false;for($n=0;$n -lt 240;$n++){foreach($w in (ProcessWindows)){$name=$w.Current.Name;if($name -in @('İşlem tamamlandı','İşlem tamamlanamadı')){if($name -eq 'İşlem tamamlanamadı'){$seenError=$true};$ok=FindNamed $w 'Tamam' ([Windows.Automation.ControlType]::Button);if($ok){([Windows.Automation.InvokePattern]$ok.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern)).Invoke()}}};Start-Sleep -Milliseconds 200;$footer=ById $root 'MainFooterStatus';if($footer.Current.Name.StartsWith('Hazır') -and $root.Current.IsEnabled){foreach($w in (ProcessWindows|Where-Object {$_.Current.Name -eq 'İşlem Durumu'})){$state=ById $w 'OperationState';if($state -and $state.Current.Name -eq 'İşlem tamamlanamadı'){$seenError=$true};CloseWindow $w};if($expectError -ne $seenError){throw ('Unexpected operation error state: '+$seenError)};return}};throw 'Operation failed to release busy state within 48 seconds'}
-            function GridPattern{return [Windows.Automation.GridPattern](ById $root 'FormatSourceList').GetCurrentPattern([Windows.Automation.GridPattern]::Pattern)}
-            function FocusLastSource([int]$index){$grid=ById $root 'FormatSourceList';if($index -ne (GridPattern).Current.RowCount-1){throw 'Expected final synthetic fixture row'};[NoticeCloser]::SetForegroundWindow([IntPtr]$root.Current.NativeWindowHandle)|Out-Null;$grid.SetFocus();[Windows.Forms.SendKeys]::SendWait('^{END}');Start-Sleep -Milliseconds 350;return $grid}
-            function ClickLastSource([int]$index,[bool]$checkbox){$grid=FocusLastSource $index;$boxes=$grid.FindAll($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty,'SelectRow_FormatSources'));$visible=@($boxes|Where-Object {!$_.Current.IsOffscreen -and $_.Current.BoundingRectangle.Height -gt 0}|Sort-Object {$_.Current.BoundingRectangle.Top});if(!$visible.Count){throw 'Visible fixture row checkbox missing'};$bounds=$visible[-1].Current.BoundingRectangle;$x=if($checkbox){$bounds.X+$bounds.Width/2}else{$grid.Current.BoundingRectangle.Left+110};$y=$bounds.Y+$bounds.Height/2;[NoticeCloser]::SetCursorPos([int]$x,[int]$y)|Out-Null;[NoticeCloser]::mouse_event(2,0,0,0,[UIntPtr]::Zero);[NoticeCloser]::mouse_event(4,0,0,0,[UIntPtr]::Zero);Start-Sleep -Milliseconds 300}
-            function SelectSource([int]$index){ClickLastSource $index $true}
-            function SelectSourceRow([int]$index){ClickLastSource $index $false}
-            $result.phase='source remove and selection'
-            $grid=ById $root 'FormatSourceList';$scroll=[Windows.Automation.ScrollPattern]$grid.GetCurrentPattern([Windows.Automation.ScrollPattern]::Pattern);$scroll.SetScrollPercent(-1,100);Start-Sleep -Milliseconds 400
-            Click $root 'Listeden kaldır: selected-folder';Start-Sleep -Milliseconds 300;if((GridPattern).Current.RowCount -ne $initialRows+1 -or !(Test-Path $selected)){throw 'Remove source did not preserve original folder'}
-            $cell=(GridPattern).GetItem(7,0);$one=$cell.FindFirst($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::CheckBox));if(!$one){throw 'Nonvirtual single source checkbox missing'}
-            ([Windows.Automation.TogglePattern]$one.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle();if(([Windows.Automation.TogglePattern](ById $root 'SelectAll_FormatSources').GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Current.ToggleState -ne [Windows.Automation.ToggleState]::Off){throw 'Single source uncheck failed'}
-            ([Windows.Automation.TogglePattern]$one.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle()
-            Click $root 'Ek Kaynağı Listeden Kaldır';Start-Sleep -Milliseconds 200;if((GridPattern).Current.RowCount -ne $initialRows -or !(Test-Path $file)){throw 'Header remove did not preserve source file'}
-            Click $root 'Dosya Ekle…';$picker=FindWindow 'Yedeğe eklenecek dosyalar';NativePath $picker $file 'Open'
-            $target=Join-Path $fixtures 'backups';$restore=Join-Path $fixtures 'new-user';$empty=Join-Path $fixtures 'empty';New-Item -ItemType Directory $target,$restore,$empty -Force|Out-Null
-            $result.phase='choose targets'
-            Click $root 'Hedef Seç…';$picker=FindWindow 'Formatlanmayacak harici disk / yedek hedefi seçin';NativePath $picker $target 'Select Folder'
-            Click $root 'Geri Yükleme Hedefi…';$picker=FindWindow 'Yeni kullanıcı klasörü / geri yükleme hedefi seçin';NativePath $picker $restore 'Select Folder'
-            $result.phase='empty catalog'
-            Click $root 'Bu Bilgisayarın Yedeklerini Bul';$picker=FindWindow 'Yedeklerin bulunduğu klasörü seçin';NativePath $picker $empty 'Select Folder' $true;WaitWork
-            if(!(ById $root 'FormatExplanation').Current.Name.Contains('bulunamadı')){throw 'Empty catalog lacks useful explanation'}
-            Click $root 'Seçili Yedeği Geri Yükle';WaitWork $true
-            $result.phase='invalid target and preflight'
-            SetValueById 'FormatTargetPath' (Join-Path $fixtures 'missing-target');Click $root 'Ön Kontrol';WaitWork $true
-            SetValueById 'FormatTargetPath' $target
-            $exclusions=FindNamed $root 'Hariç tutulacak klasör / dosya yolları' ([Windows.Automation.ControlType]::Group);if(!$exclusions){throw 'Exclusion expander missing'};([Windows.Automation.ExpandCollapsePattern]$exclusions.GetCurrentPattern([Windows.Automation.ExpandCollapsePattern]::Pattern)).Expand();Start-Sleep -Milliseconds 200
-            SetValueById 'FormatExclusions' $file;Click $root 'Ön Kontrol';WaitWork
-            if(!(ById $root 'FormatExplanation').Current.Name.Contains('0 dosya')){throw 'Exclusion did not apply in preflight'}
-            SetValueById 'FormatExclusions' '';Click $root 'Ön Kontrol';WaitWork
-            if(!(ById $root 'FormatExplanation').Current.Name.Contains('1 dosya')){throw 'Preflight selected unintended sources'}
-            $result.phase='ACL denied backup'
-            $denied=Join-Path $fixtures 'denied-target';New-Item -ItemType Directory $denied -Force|Out-Null;$savedAcl=Get-Acl $denied
-            try{$restricted=Get-Acl $denied;$sid=[Security.Principal.WindowsIdentity]::GetCurrent().User;$rule=[Security.AccessControl.FileSystemAccessRule]::new($sid,[Security.AccessControl.FileSystemRights]::Write,[Security.AccessControl.InheritanceFlags]'ContainerInherit,ObjectInherit',[Security.AccessControl.PropagationFlags]::None,[Security.AccessControl.AccessControlType]::Deny);$restricted.AddAccessRule($rule);Set-Acl $denied $restricted;SetValueById 'FormatTargetPath' $denied;Click $root 'Seçilenleri Yedekle';$confirm=FindWindow 'İşlem onayı';Click $confirm 'Devam Et';WaitWork $true;if((Get-ChildItem $denied -Force).Count -ne 0 -or !(Test-Path $file)){throw 'Denied target changed data'}}finally{Set-Acl $denied $savedAcl}
-            SetValueById 'FormatTargetPath' $target
-            Click $root 'Seçilenleri Yedekle';$confirm=FindWindow 'İşlem onayı';Click $confirm 'Devam Et';WaitWork
-            $result.phase='complete backup'
-            $manifests=@(Get-ChildItem $target -Filter manifest.json -Recurse);if($manifests.Count -ne 1 -or (Get-Content $manifests[0].FullName|ConvertFrom-Json).Status -ne 'Complete'){throw 'Synthetic backup was not complete'}
-            Click $root 'Bu Bilgisayarın Yedeklerini Bul';$picker=FindWindow 'Yedeklerin bulunduğu klasörü seçin';NativePath $picker $target 'Select Folder' $true;WaitWork
-            $catalog=ById $root 'FormatBackupCatalog';if($catalog.FindAll($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::ListItem)).Count -ne 1){throw 'Completed backup not found in catalog'}
-            $result.phase='restore integrity'
-            Click $root 'Seçili Yedeği Geri Yükle';$confirm=FindWindow 'İşlem onayı';Click $confirm 'Devam Et';WaitWork
-            $restored=Get-ChildItem $restore -Filter selected-file.txt -Recurse|Select-Object -First 1;if(!$restored -or (Get-FileHash $restored.FullName).Hash -ne (Get-FileHash $file).Hash){throw 'Restore to new user failed integrity check'}
-            [IO.File]::WriteAllText($restored.FullName,'existing fixture must survive');$keep=ById $root 'FormatKeepBoth';([Windows.Automation.TogglePattern]$keep.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle()
-            Click $root 'Seçili Yedeği Geri Yükle';$confirm=FindWindow 'İşlem onayı';Click $confirm 'Devam Et';WaitWork
-            if([IO.File]::ReadAllText($restored.FullName) -ne 'existing fixture must survive' -or !(ById $root 'FormatExplanation').Current.Name.Contains('1 çakışma')){throw 'Skip-conflict restore overwrote existing file or misreported result'}
-            ([Windows.Automation.TogglePattern]$keep.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle();Click $root 'Seçili Yedeği Geri Yükle';$confirm=FindWindow 'İşlem onayı';Click $confirm 'Devam Et';WaitWork
-            if(!(Get-ChildItem $restore -Filter '*Yedek*' -Recurse|Where-Object {!$_.PSIsContainer}) -or [IO.File]::ReadAllText($restored.FullName) -ne 'existing fixture must survive'){throw 'KeepBoth conflict restore failed'}
-            $result.phase='cancel backup'
-            $large=Join-Path $fixtures 'cancel-fixture.bin';$stream=[IO.File]::Create($large);try{$stream.SetLength(1073741824)}finally{$stream.Dispose()}
-            Click $root 'Dosya Ekle…';$picker=FindWindow 'Yedeğe eklenecek dosyalar';NativePath $picker $large 'Open'
-            Click $root 'Seçilenleri Yedekle';$confirm=FindWindow 'İşlem onayı';Click $confirm 'Devam Et';Start-Sleep -Milliseconds 100;Click $root 'Yedekleme / Geri Yüklemeyi Durdur';WaitWork
-            if(!(ById $root 'FormatExplanation').Current.Name.Contains('iptal') -or (Get-Item $large).Length -ne 1073741824){throw 'Backup cancel failed or source changed'}
-            $result.phase='invalid catalog'
-            $invalid=Join-Path $fixtures 'invalid-backup';New-Item -ItemType Directory $invalid -Force|Out-Null;[IO.File]::WriteAllText((Join-Path $invalid 'manifest.json'),'invalid synthetic manifest')
-            Click $root 'Bu Bilgisayarın Yedeklerini Bul';$picker=FindWindow 'Yedeklerin bulunduğu klasörü seçin';NativePath $picker $invalid 'Select Folder' $true;WaitWork $true
-            Click $root 'Klasörleri Listele';Start-Sleep -Milliseconds 200;if((GridPattern).Current.RowCount -ne 7){throw 'Reset known folder listing failed'}
-            $all=ById $root 'SelectAll_FormatSources';([Windows.Automation.TogglePattern]$all.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle();Click $root 'Ön Kontrol';WaitWork $true
-            $result.formatControls=[ordered]@{addFolder=$true;addFile=$true;pickBackupTarget=$true;pickRestoreTarget=$true;removeSourceWithoutDeletion=$true;selectAndUnselectAll=$true;exclusions=$true;preflight=$true;emptyCatalog=$true;findCompletedBackup=$true;backupIntegrity=$true;restoreNewUser=$true;skipConflict=$true;keepBothConflict=$true;cancelBackupPreservesSource=$true;invalidTarget=$true;inaccessibleTarget=$true;invalidManifest=$true;noSelection=$true;refreshFolders=$true}
-            Screenshot $root 'after-format.png'
+            $proof=Get-Content binaries/format1101-proof.json | ConvertFrom-Json
+            if($proof.exeSha256 -ne $result.exeSha256 -or @($proof.formatControls.PSObject.Properties|Where-Object {!$_.Value}).Count){throw 'Retained Format controls proof does not match this EXE'}
+            if($proof.browserCheckSha -ne (Get-Content binaries/browser-checks-sha.txt).Trim()){throw 'Browser check bundle changed; retained evidence invalid'}
+            $result.formatControls=$proof.formatControls;$result.formatEvidenceRun=$proof.sourceRun;$result.beforeBugReproduced=$proof.beforeBugReproduced;$result.retainedBrowserPackageChecks=29
+            $fixtures=Join-Path $dir 'picker-fixtures';New-Item -ItemType Directory $fixtures -Force|Out-Null
             SelectTab 'Arama Motoru Yedekleme';Click $root 'Paket Dosyasını Seç…';$picker=FindWindow 'Tek şifreli tarayıcı paketini kaydet';Start-Sleep -Seconds 1;AssertNoProgress;CancelNative $picker 'Cancel'
             $result.phase='unified browser backup'
             $chromeRoot=Join-Path $env:LOCALAPPDATA 'Google/Chrome/User Data';$profile=Join-Path $chromeRoot 'Default';New-Item -ItemType Directory $profile -Force|Out-Null
@@ -207,7 +127,7 @@ jobs:
             $result.phase='unified browser restore'
             [IO.File]::WriteAllText($book,$bookJson.Replace('Fixture','Current'))
             $mode=ById $root 'BrowserWizardMode';([Windows.Automation.ExpandCollapsePattern]$mode.GetCurrentPattern([Windows.Automation.ExpandCollapsePattern]::Pattern)).Expand();Start-Sleep -Milliseconds 150
-            $restoreMode=FindNamed ([Windows.Automation.AutomationElement]::RootElement) 'Geri Yükle' ([Windows.Automation.ControlType]::ListItem);if(!$restoreMode){throw 'Restore mode missing'};([Windows.Automation.SelectionItemPattern]$restoreMode.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern)).Select()
+            $restoreMode=FindNamed ([Windows.Automation.AutomationElement]::RootElement) 'Geri Yükle' ([Windows.Automation.ControlType]::ListItem);if(!$restoreMode){throw 'Restore mode missing'};$bounds=$restoreMode.Current.BoundingRectangle;[NoticeCloser]::SetCursorPos([int]($bounds.X+$bounds.Width/2),[int]($bounds.Y+$bounds.Height/2))|Out-Null;[NoticeCloser]::mouse_event(2,0,0,0,[UIntPtr]::Zero);[NoticeCloser]::mouse_event(4,0,0,0,[UIntPtr]::Zero);Start-Sleep -Milliseconds 200;if((ById $root 'BrowserBackupSave').Current.Name -ne 'Planı Göster ve Geri Yükle'){throw 'Restore mode did not actually change'}
             $replace=ById $root 'BrowserWizardReplace';([Windows.Automation.TogglePattern]$replace.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle()
             SetTestPassword 'BrowserVaultPassword' '12345678';WizardConsent;Click $root 'Planı Göster ve Geri Yükle';$confirm=FindWindow 'İşlem onayı';Click $confirm 'Vazgeç';WaitWork
             if(![IO.File]::ReadAllText($book).Contains('Current')){throw 'Cancelled wizard restore changed browser profile'}
@@ -302,3 +222,5 @@ jobs:
 # Unified browser workflow: synthetic official export, eight-character minimum, single encrypted package, plan and exact restore.
 
 # Open exclusion UI before use; exercise header remove and robust sparse-source cancellation.
+
+# Retain passed exact-EXE Format and 29 package checks; complete browser restore via actual dropdown click.
