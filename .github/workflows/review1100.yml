@@ -204,3 +204,5 @@ jobs:
             ${{ runner.temp }}/exact-archive-review/*.png
             ${{ runner.temp }}/profile-checks/*-results.txt
           retention-days: 14
+
+# Synthetic fixture root follows RUNNER_TEMP on Windows; AppData remains excluded.
