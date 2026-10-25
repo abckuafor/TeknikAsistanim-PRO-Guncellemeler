@@ -116,6 +116,10 @@ jobs:
             $result.folderRowCount=([Windows.Automation.GridPattern]$sources.GetCurrentPattern([Windows.Automation.GridPattern]::Pattern)).Current.RowCount
             Screenshot $root 'format1100.png'
             if($result.folderRowCount -ne 7){throw ('Expected seven default folder rows: '+$result.folderRowCount)}
+            $allFolders=ById $sources 'SelectAll_FormatSources';if(!$allFolders){throw 'Unified folder selection header missing'}
+            if(([Windows.Automation.TogglePattern]$allFolders.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Current.ToggleState -ne [Windows.Automation.ToggleState]::On){throw 'Existing folders not initially selected'}
+            Toggle $allFolders;if(([Windows.Automation.TogglePattern]$allFolders.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Current.ToggleState -ne [Windows.Automation.ToggleState]::Off){throw 'Select-all clear failed'}
+            Toggle $allFolders
             Screenshot $root 'format1100.png'
             $fixture=Join-Path $dir 'synthetic';New-Item -ItemType Directory $fixture -Force|Out-Null
             $csv=Join-Path $fixture 'manual.csv';[IO.File]::WriteAllText($csv,"name,url,username,password`nFixture,https://example.invalid,synthetic,not-a-real-secret")
@@ -203,3 +207,5 @@ jobs:
           retention-days: 14
 
 # Synthetic fixture root follows RUNNER_TEMP on Windows; AppData remains excluded.
+
+# Unify folder checkboxes with existing business-selection controller.
