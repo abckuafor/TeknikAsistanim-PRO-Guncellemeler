@@ -1,6 +1,6 @@
-Teknik Servis PRO 1.10.7
-- Yer imi dosyası olmayan profiller listede nedenleriyle tutulur, otomatik seçilmez.
-- Okunabilir yer imlerinde sürüm kaydı eksikse doğrulanmış HTML içerik otomatik oluşturulur.
-- Yer İmlerini Kontrol Et zorunlu HTML aktarım penceresi açmaz. Elle HTML ekleme ayrı ve isteğe bağlıdır.
-- Seçili erişilemeyen veri varsa sessiz başarı yok; seçim veya isteğe bağlı aktarım kullanıcıya açıklanır.
-- Şifre toplama kapalıdır; veri/ayar korumaları ve eski paket uyumluluğu korunur.
+Teknik Servis PRO 1.10.8
+- Otomatik yer imi yedekleme/geri yükleme Chrome ve Edge ile sınırlı.
+- Yerel ve AccountBookmarks dosyaları doğrulanıp taşınabilir biçim 1 olarak paketlenir; HTML seçimi gerekmez.
+- Yeni yedekler tarayıcı kapalıyken otomatik uygulanır. Varsayılan mevcut favorilerle birleştirme, tekrar yüklemede yinelenmeme.
+- Önceki dosya yedeği, hedef hash kontrolü ve son okuma doğrulaması korunur. Kaynak/bozuk veri veya hedef profil bulunamazsa açık sonuç verilir.
+- Şifre/çerez/oturum alınmaz; eski paket uyumluluğu ve Data/Drivers korunur. Eski HTML paketlerinde eski içe aktarma sınırlaması devam eder.
