@@ -130,7 +130,7 @@ jobs:
             $tab=FindNamed $tool 'Donanım ve değişiklikler' ([Windows.Automation.ControlType]::TabItem);([Windows.Automation.SelectionItemPattern]$tab.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern)).Select()
             InvokeId $tool 'DiagnosticHealth';$operation=FindWindow 'İşlem Durumu';WaitDone $operation;Maximized $operation;CloseWindow $operation
             InvokeId $tool 'OpenDiagnosticFindings';$findings=FindWindow 'Servis incelemesi — bulgular';Maximized $findings
-            $list=ById $findings 'DiagnosticFindings';if(!$list -or $list.Current.BoundingRectangle.Height -lt 400){throw 'Findings do not use the window'};Screenshot $findings 'findings-full.png';CloseWindow $findings
+            Add-Type -AssemblyName PresentationFramework;$done=FindNamed $findings 'Kapat' ([Windows.Automation.ControlType]::Button);if($done.Current.BoundingRectangle.Bottom -gt [Windows.SystemParameters]::WorkArea.Bottom){throw 'Findings footer extends behind taskbar'};$list=ById $findings 'DiagnosticFindings';if(!$list -or $list.Current.BoundingRectangle.Height -lt 400){throw 'Findings do not use the window'};Screenshot $findings 'findings-full.png';CloseWindow $findings
             InvokeId $tool 'OpenDiagnosticFindings';$findings=FindWindow 'Servis incelemesi — bulgular';if(!(ById $findings 'DiagnosticFindings')){throw 'Findings lost after reopening'};CloseWindow $findings
             ([Windows.Automation.WindowPattern]$tool.GetCurrentPattern([Windows.Automation.WindowPattern]::Pattern)).SetWindowVisualState([Windows.Automation.WindowVisualState]::Normal)
             ([Windows.Automation.TransformPattern]$tool.GetCurrentPattern([Windows.Automation.TransformPattern]::Pattern)).Resize(760,600);Start-Sleep -Milliseconds 250
