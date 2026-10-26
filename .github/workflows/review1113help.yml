@@ -152,8 +152,22 @@ jobs:
               Screenshot $section ('section-'+$entry[1]+'.png');CloseWindow $section
             }
             Click $operation 'Madde madde özet';$section=FindWindow 'Madde madde özet';if(!(ById $section 'AutoSummaryStatus')){throw 'Summary cannot reopen after other sections'};CloseWindow $section
+            Click $operation 'Not ekle / kaydet';$notes=FindWindow 'Not ekle / kaydet'
+            $note=$notes.FindFirst($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::Edit))
+            if(!$note){throw 'Notes editor missing'}
+            ([Windows.Automation.ValuePattern]$note.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern)).SetValue('synthetic unsaved note preserved')
+            CloseWindow $notes
+            Click $operation 'Not ekle / kaydet';$notes=FindWindow 'Not ekle / kaydet'
+            $note=$notes.FindFirst($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::Edit))
+            if(([Windows.Automation.ValuePattern]$note.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern)).Current.Value -ne 'synthetic unsaved note preserved'){throw 'Notes lost after closing section'}
+            ([Windows.Automation.WindowPattern]$notes.GetCurrentPattern([Windows.Automation.WindowPattern]::Pattern)).SetWindowVisualState([Windows.Automation.WindowVisualState]::Normal)
+            ([Windows.Automation.TransformPattern]$notes.GetCurrentPattern([Windows.Automation.TransformPattern]::Pattern)).Resize(760,540);Start-Sleep -Milliseconds 300
+            if($notes.Current.BoundingRectangle.Width -gt 800 -or $note.Current.IsOffscreen){throw 'Section resize not usable'}
+            ([Windows.Automation.ValuePattern]$note.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern)).SetValue('')
+            Click $notes 'Kapat';Start-Sleep -Milliseconds 300
+            if(!$operation.Current.IsEnabled){throw 'Section close did not return to operation window'}
             CloseWindow $operation;CloseWindow $tool
-            $result.helpAndSectionChecks=@{realHover=$true;actionRisk=$true;f1Help=$true;search=$true;helpReopen=$true;popupHelp=$true;fourSeparateSections=$true;sectionContentPreserved=$true;sectionReopen=$true}
+            $result.helpAndSectionChecks=@{realHover=$true;actionRisk=$true;f1Help=$true;search=$true;helpReopen=$true;popupHelp=$true;fourSeparateSections=$true;sectionContentPreserved=$true;sectionReopen=$true;notesPreserved=$true;resize=$true;closeReturnsToOwner=$true}
             $result.hardwareScope='Contextual help and operation-section UI only; a local Windows health read populates the summary. No driver/network mutation, backup/restore or real Gemini request. Static catalog policy tests run locally.'
             $app.Refresh();$result.mainWindowEnabled=$root.Current.IsEnabled
             if(!$root.Current.IsEnabled){throw 'Main window remained disabled after dialogs'}
