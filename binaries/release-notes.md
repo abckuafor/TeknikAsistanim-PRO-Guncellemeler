@@ -1,7 +1,5 @@
-Teknik Servis PRO 1.11.3
-- Teknik işlem düğmeleri, terimler ve menüler için sade Türkçe hover açıklamaları; işlev, kullanım ve önemli etkiler belirtilir.
-- F1 veya ? Yardım ile aramalı Terimler ve İşlemler rehberi. Bu rehber işlem başlatmaz veya API çağırmaz.
-- Sonradan açılan araç pencereleri ve menüler de yardım sistemini kullanır. Mevcut ek uyarılar korunur.
-- Açıklamalar ekran okuyucu yardım metninde de sunulur. Düzenlenebilir alanlar, parolalar ve ham günlükler sözlük taraması için okunmaz.
-- Mevcut ayarlar, Data/Drivers, yedekler ve işlem onayları korunur.
-- İşlem Durumu içindeki özet, kolay anlatım, genel durum ve teknik ayrıntı başlıkları tıklanınca ayrı geniş pencerede açılır; not alanı da aynı şekilde çalışır.
+Teknik Servis PRO 1.11.4
+- İnternet sayfasında ana onarım solda, kesinti takibi ve ağ araçları sağda ayrı kartlarda düzenlendi. Dar pencerede kartlar alt alta geçer; düğme yazıları sarılır.
+- Test sonuçları zaten otomatik günlük ve Bilgisayar Geçmişi kaydına yazıldığı için internet sayfasındaki elle Bağlantı Test Sonucunu Kaydet kısayolu kaldırıldı. Bunun bir kullanıcı gözlemi alanı olduğu ayrımı korunur; diğer cihazların gözlem/not ekranları kaldırılmadı.
+- İnternet sayfasında otomatik kayıt bilgisi açıkça gösterilir. Hız ibresi, onarım komutu, riskli işlem onayları ve geniş araç penceresi korunur.
+- Mevcut Data/Drivers, bilgisayar geçmişi ve yapay zeka ayarları korunur.
