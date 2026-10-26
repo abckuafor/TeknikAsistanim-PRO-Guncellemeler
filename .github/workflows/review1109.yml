@@ -160,6 +160,7 @@ jobs:
             if(!$text.Contains('İşlem hatası') -or !$text.Contains('Yapılamadı')){throw 'Failure missing from readable summary'}
             Screenshot $operation 'summary-error.png';CloseWindow $operation
             foreach($i in 1..3){SelectTab 'Donanım ve Sürücüler';SelectTab 'Yapay Zeka Hata Analizi'}
+            ([Windows.Automation.WindowPattern]$root.GetCurrentPattern([Windows.Automation.WindowPattern]::Pattern)).SetWindowVisualState([Windows.Automation.WindowVisualState]::Normal);Start-Sleep -Milliseconds 200
             ([Windows.Automation.TransformPattern]$root.GetCurrentPattern([Windows.Automation.TransformPattern]::Pattern)).Resize(950,700);Start-Sleep -Milliseconds 300
             Screenshot $root 'summary-compact.png'
             $result.summaryChecks=@{defaultOff=$true;savedAndReloaded=$true;revocation=$true;keyEncrypted=$true;localFailureBullet=$true;separateTechnicalPanel=$true;repeatedNavigation=$true;resize=$true;realApiCalled=$false;syntheticOnly=$true}
