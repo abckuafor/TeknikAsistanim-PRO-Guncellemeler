@@ -1,11 +1,7 @@
-- Format ve tarayıcı yedekleri Bilgisayar adı - Kime ait - Tarih/saat klasöründe saklanır. Kayıtlı sahip yoksa açıkça belirtilir; eski kataloglar korunur.
-- Chromium biçim 1 içindeki geçerli boş roots sözlükleri desteklenir; boş AccountBookmarks yerel favorilerin yedeğini engellemez. Dosya adı ve sürüm/roots nedeni ön kontrolde açıklanır; her profilde yer imi sayısı gösterilir.
-- Format yedekleme hatası bölümde gösterilir; genel istisnalar kalıcı günlük dosyasına yazılır.
-Teknik Servis PRO 1.10.9
-- Her cihaz ve işlem için ayrı maddeler: yapılanlar, tamamlanamayanlar ve sonraki kontrol.
-- Gemini otomatik yorumlama ve elle sorgular için bir kez kaydedilen, kapatılabilir onay.
-- Otomatik istekte yalnız işlem kategorisi, durum ve ayıklanmış kod/ölçüm; ham günlük, cihaz/kişi adı ve dosya içerikleri gönderilmez. Elle sorgu metni kullanıcı tercihiyle gönderilir.
-- Arka planda tek toplu istek, son 8 yanıtın oturum içi önbelleği; kota hatasında 15 dakika ara ve yerel özet.
-- Yeni işlem/ayar değişikliğinde önceki yorum iptal edilir. Yorumlar ilgili bilgisayar geçmişine kaydedilir; teknik panel ayrıdır.
-- Gemini API proje faturalandırması Google tarafından belirlenir; ücretli projede ücret oluşabilir. Uygulama planı değiştirmez.
-- Data, Drivers, kayıtlı kullanıcı ayarları ve 1.10.8 yer imi yedek/geri yükleme korunur.
+Teknik Servis PRO 1.10.10
+- Tüm ortak işlem sonuçlarında simge ve renk: yeşil onay, kırmızı hata, sarı kontrol/yeniden başlatma, gri durdurma, mavi bilgi/çalışma.
+- Madde madde özetler, kolay anlatım, teknik sonuç tablosu, cihaz durumu/işlem sonucu, geçmiş ve genel durum aynı gösterimi kullanır.
+- Bir grupta hata/kontrol bekleyen adım varsa genel başlık başarı göstermez. Yeni işlemde eski hata rengi taşınmaz.
+- Format iptal sonuçları durduruldu olarak gösterilir; fiziksel kaynaklar korunur. Geçmişte kayıtlı sonuç bayrakları okunur; kayıtlar değiştirilmez.
+- Renk yanında yazı ve simge korunur; onay pencereleri de aynı dili kullanır.
+- 1.10.9 yedek adlandırması, Chrome/Edge yer imleri, Gemini onayı, Data/Drivers ve kayıtlı ayarlar korunur.
