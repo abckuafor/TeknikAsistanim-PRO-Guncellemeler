@@ -125,7 +125,8 @@ jobs:
             function InvokeId($w,$id){$b=ById $w $id;if(!$b){throw "Missing: $id"};([Windows.Automation.InvokePattern]$b.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern)).Invoke()}
             $result.phase='static contextual help and real hover'
             $network=ById $root 'FixInternetAll'
-            if(!$network.Current.HelpText.Contains('IP/DNS') -or !$network.Current.HelpText.Contains('kesilebilir')){throw 'Action explanation/risk not attached'}
+            for($ready=0;$ready -lt 100 -and !$network.Current.HelpText.Contains('IP/DNS');$ready++){Start-Sleep -Milliseconds 100}
+            if(!$network.Current.HelpText.Contains('IP/DNS') -or !$network.Current.HelpText.Contains('kesilebilir')){throw ('Action explanation/risk not attached: '+$network.Current.HelpText)}
             [NoticeCloser]::SetForegroundWindow([IntPtr]$root.Current.NativeWindowHandle)|Out-Null
             $r=$network.Current.BoundingRectangle;[NoticeCloser]::SetCursorPos([int]($r.Left+$r.Width/2),[int]($r.Top+$r.Height/2))|Out-Null
             $tip=$null;for($i=0;$i -lt 40;$i++){$tip=[Windows.Automation.AutomationElement]::RootElement.FindFirst($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::ToolTip));if($tip){break};Start-Sleep -Milliseconds 100}
