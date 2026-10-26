@@ -15,7 +15,7 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-      - name: WPF model persistence checks
+      - name: Isolated WPF model persistence checks
         shell: pwsh
         run: |
           $ErrorActionPreference='Stop'
