@@ -144,7 +144,10 @@ jobs:
             $windowPattern.SetWindowVisualState([Windows.Automation.WindowVisualState]::Normal)
             $transform=[Windows.Automation.TransformPattern]$root.GetCurrentPattern([Windows.Automation.TransformPattern]::Pattern)
             $transform.Move(0,0);$transform.Resize(700,700);Start-Sleep -Milliseconds 700
-            NetworkLayout $true;Screenshot $root 'network-narrow.png'
+            NetworkLayout $true
+            $heading=FindNamed $root 'İnternet bağlantısı ve hız' ([Windows.Automation.ControlType]::Text)
+            if(!$heading -or $heading.Current.BoundingRectangle.Right -gt $root.Current.BoundingRectangle.Right){throw 'Narrow page heading clipped'}
+            Screenshot $root 'network-narrow.png' 
             $windowPattern.SetWindowVisualState([Windows.Automation.WindowVisualState]::Maximized);Start-Sleep -Milliseconds 700;NetworkLayout $false
             $result.phase='network tools correct group, close, repeat, navigation'
             for($attempt=0;$attempt -lt 2;$attempt++){
