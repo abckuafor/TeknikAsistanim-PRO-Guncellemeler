@@ -104,7 +104,11 @@ jobs:
             function ById($parent,[string]$id){return $parent.FindFirst($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty,$id))}
             Add-Type -AssemblyName System.Drawing
             function Screenshot($window,[string]$name) {
+              [NoticeCloser]::SetForegroundWindow([IntPtr]$window.Current.NativeWindowHandle)|Out-Null
               $bounds=$window.Current.BoundingRectangle
+              [NoticeCloser]::SetCursorPos([int]($bounds.Left+180),[int]($bounds.Top+28))|Out-Null
+              [NoticeCloser]::mouse_event(2,0,0,0,[UIntPtr]::Zero);[NoticeCloser]::mouse_event(4,0,0,0,[UIntPtr]::Zero)
+              Start-Sleep -Milliseconds 250
               $image=[Drawing.Bitmap]::new([int]$bounds.Width,[int]$bounds.Height);$graphics=[Drawing.Graphics]::FromImage($image);$graphics.CopyFromScreen([int]$bounds.X,[int]$bounds.Y,0,0,$image.Size)
               $image.Save((Join-Path $dir $name),[Drawing.Imaging.ImageFormat]::Png);$graphics.Dispose();$image.Dispose()
             }
