@@ -1,3 +1,4 @@
+# Wait for the actual modeless progress window after native confirmation closes.
 # Final EXE 2c1c25fd0a98b6a440edafc45cce59ecd0d6fe38cca4a29206022616ecbfc40d
 # Final three-screen layout: purpose-specific fields and isolated preparation feedback.
 # Backup preparation status is not shown on restore settings.
@@ -166,7 +167,7 @@ jobs:
             $result.phase='running and cancellation'
             $large=Join-Path $fixtures 'cancel-status.bin';$stream=[IO.File]::Create($large);try{$stream.SetLength(1073741824)}finally{$stream.Dispose()}
             Click $root 'Dosya Ekle…';$picker=FindWindow 'Yedeğe eklenecek dosyalar';NativePath $picker $large 'Open'
-            Click $root 'Seçilenleri Yedekle';$confirm=FindWindow 'İşlem onayı';Click $confirm 'Devam Et';InvokeId $root 'OpenOperationStatus'
+            Click $root 'Seçilenleri Yedekle';$confirm=FindWindow 'İşlem onayı';Click $confirm 'Devam Et'
             $op=FindWindow 'İşlem Durumu';AssertLook $op '↻' 'İşlem sürüyor' '#EFF6FF' 'running-blue.png'
             Click $root 'Yedekleme / Geri Yüklemeyi Durdur';WaitDone $op;Start-Sleep -Milliseconds 150
             AssertLook $op '■' 'Durduruldu' '#F1F5F9' 'cancelled-grey.png';CloseWindow $op
