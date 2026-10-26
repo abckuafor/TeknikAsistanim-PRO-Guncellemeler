@@ -123,7 +123,7 @@ jobs:
             $expander=$root.FindFirst($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::NameProperty,'Bağlantı testi notları'))
             ([Windows.Automation.ExpandCollapsePattern]$expander.GetCurrentPattern([Windows.Automation.ExpandCollapsePattern]::Pattern)).Expand();Start-Sleep -Milliseconds 150
             Click $root 'Bağlantı Test Sonucunu Kaydet';$notes=FindWindow 'Fiziksel test sonucu ve notlar'
-            $choice=ById $notes 'DeliveryCheckChoice';$selected=([Windows.Automation.SelectionPattern]$choice.GetCurrentPattern([Windows.Automation.SelectionPattern]::Pattern)).GetCurrentSelection()
+            $choice=ById $notes 'DeliveryCheckChoice';$selected=([Windows.Automation.SelectionPattern]$choice.GetCurrentPattern([Windows.Automation.SelectionPattern]::Pattern)).Current.GetSelection()
             if($selected.Count -ne 1 -or $selected[0].Current.Name -ne 'Ethernet / Wi-Fi — gerçek erişim'){throw 'Network observation selected wrong device type'}
             $input=ById $notes 'DeliveryObservationInput';([Windows.Automation.ValuePattern]$input.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern)).SetValue('Synthetic unsaved note; no customer data')
             CloseWindow $notes
