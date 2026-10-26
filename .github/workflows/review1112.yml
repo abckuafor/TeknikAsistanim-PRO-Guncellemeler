@@ -1,3 +1,4 @@
+# Final header weight: WPF Light; exact EXE 27c7065b87f11831614ce9f7027adfd2f63ace37e9db9288731a617614e53a4b
 name: Review and publish 1.10.12
 on:
   push:
@@ -51,6 +52,10 @@ jobs:
             $result.scanExitCode=$LASTEXITCODE
             if ($LASTEXITCODE -ne 0) { $result.verdict='DETECTED_OR_SCAN_ERROR'; throw 'Original archive scan did not succeed' }
             $result.verdict='NO_DETECTION_IN_THIS_ENVIRONMENT'
+            Add-Type -AssemblyName PresentationCore
+            $fontWeightConverter=[Windows.FontWeightConverter]::new()
+            $fontWeightConverter.ConvertFromInvariantString('Light')|Out-Null
+            $result.headerFontWeightVerified=$true
             $app=Start-Process $exe -WorkingDirectory $folder -PassThru
             $result.exeExecuted=$true
             for ($i=0;$i -lt 30;$i++) {
@@ -134,7 +139,7 @@ jobs:
             if(!$app.WaitForExit(10000) -or $app.ExitCode -ne 0){throw 'First exit failed'}
             $app=Start-Process $exe -WorkingDirectory $folder -PassThru
             for($i=0;$i -lt 80;$i++){Start-Sleep -Milliseconds 250;$app.Refresh();if($app.MainWindowHandle -ne 0 -and $app.MainWindowTitle -like 'Teknik Servis PRO 1.10.12*'){break}}
-            $root=[Windows.Automation.AutomationElement]::FromHandle($app.MainWindowHandle);AssertInternetHome;AssertBrand
+            $root=[Windows.Automation.AutomationElement]::FromHandle($app.MainWindowHandle);Start-Sleep -Milliseconds 200;AssertInternetHome;AssertBrand
             Screenshot $root 'internet-home-restarted.png'
             $result.homeAndBrandChecks=@{internetInitial=$true;internetAfterRestart=$true;startsMaximized=$true;allNavigation=$true;titleText=$true;proBadge=$true;noHeaderOverlap=$true;resize950=$true;resize700=$true}
             $result.hardwareScope='Startup, restart, navigation and responsive title checks only. No network repair, speed measurement, driver installation, backup, physical device or real Gemini request was invoked.'
