@@ -143,10 +143,15 @@ jobs:
               $item=FindNamed $parent $provider ([Windows.Automation.ControlType]::ListItem)
               if(!$item){$item=[Windows.Automation.AutomationElement]::RootElement.FindFirst($scope,[Windows.Automation.AndCondition]::new([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::NameProperty,$provider),[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::ListItem),[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ProcessIdProperty,$app.Id)))}
               if(!$item){throw ('Provider option missing: '+$provider)}
-              ([Windows.Automation.SelectionItemPattern]$item.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern)).Select();$expand.Collapse();ScrollSettings $parent 0
+              $bounds=$item.Current.BoundingRectangle
+              if($bounds.IsEmpty -or $bounds.Width -le 0 -or $item.Current.IsOffscreen){throw ('Provider option not visible: '+$provider)}
+              [NoticeCloser]::SetCursorPos([int]($bounds.Left+$bounds.Width/2),[int]($bounds.Top+$bounds.Height/2))|Out-Null
+              [NoticeCloser]::mouse_event(2,0,0,0,[UIntPtr]::Zero);[NoticeCloser]::mouse_event(4,0,0,0,[UIntPtr]::Zero)
+              Start-Sleep -Milliseconds 300;$expand.Collapse();ScrollSettings $parent 0
             }
             $result.phase='Gemini quota card, no speculative remaining quota'
             SelectTab 'Yapay Zeka Ayarları';WaitQuota $root 'Henüz doğrulanmadı'
+            if(!(ById $root 'GeminiHasLimits').Current.Name.Contains('limitleri: Var')){throw 'API limit existence not visible'}
             $remaining=ById $root 'GeminiQuotaRemaining'
             if(!$remaining.Current.Name.Contains('öğrenilemiyor')){throw 'Remaining quota not clearly unknown'}
             if(!(ById $root 'GeminiLastApiResult').Current.Name.Contains('Bu oturumda kayıt yok')){throw 'Startup falsely claims an API request'}
