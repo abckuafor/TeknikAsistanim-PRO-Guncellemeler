@@ -1,3 +1,4 @@
+- Format ve tarayıcı yedekleri Bilgisayar adı - Kime ait - Tarih/saat klasöründe saklanır. Kayıtlı sahip yoksa açıkça belirtilir; eski kataloglar korunur.
 - Chromium biçim 1 içindeki geçerli boş roots sözlükleri desteklenir; boş AccountBookmarks yerel favorilerin yedeğini engellemez. Dosya adı ve sürüm/roots nedeni ön kontrolde açıklanır; her profilde yer imi sayısı gösterilir.
 - Format yedekleme hatası bölümde gösterilir; genel istisnalar kalıcı günlük dosyasına yazılır.
 Teknik Servis PRO 1.10.9

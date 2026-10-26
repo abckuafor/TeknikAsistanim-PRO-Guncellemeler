@@ -1,4 +1,4 @@
-# Final EXE c67763584467eef9a84e4f0efd3e4664f87f95ffcd5d0f8d2b52e45ab6914f48
+# Final EXE 05775160536c1f55470daa759818d95322b4f3d2cea7dc259913b866378a9b9c
 # Final three-screen layout: purpose-specific fields and isolated preparation feedback.
 # Backup preparation status is not shown on restore settings.
 # Purpose-specific settings only; no repeated source picker in restore password step.
@@ -237,6 +237,8 @@ jobs:
             Click $root 'Seçilenleri Yedekle';$confirm=FindWindow 'İşlem onayı';Click $confirm 'Devam Et';WaitWork
             $result.phase='complete backup'
             $manifests=@(Get-ChildItem $target -Filter manifest.json -Recurse);if($manifests.Count -ne 1 -or (Get-Content $manifests[0].FullName|ConvertFrom-Json).Status -ne 'Complete'){throw 'Synthetic backup was not complete'}
+            if(!(Split-Path $manifests[0].DirectoryName -Leaf).Contains(' - Sahip belirtilmedi - ')){throw 'Format backup folder lacks computer-owner-date'}
+            $result.formatReadableFolderVerified=$true
             Click $root 'Bu Bilgisayarın Yedeklerini Bul';$picker=FindWindow 'Yedeklerin bulunduğu klasörü seçin';NativePath $picker $target 'Select Folder' $true;WaitWork
             $catalog=ById $root 'FormatBackupCatalog';if($catalog.FindAll($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::ListItem)).Count -ne 1){throw 'Completed backup not found in catalog'}
             $result.phase='restore integrity'
@@ -300,7 +302,10 @@ jobs:
             Click $root 'Devam Et';Start-Sleep -Milliseconds 200
             Click $root 'Yer İmlerini Kontrol Et';Start-Sleep -Milliseconds 300;AssertNoProgress
             if((ProcessWindows|Where-Object {$_.Current.Name -like '*aktarım adımı*' -or $_.Current.Name -like '*CSV*'})){throw 'Bookmark-only preparation requested password export'}
-            $package=Join-Path $fixtures 'unified-browser.tsbrowser';SetValueById 'BrowserWizardPackagePath' $package
+            Click $root 'Yedekleme / Geri Yükleme Konumunu Seç…';$picker=FindWindow 'Tarayıcı yedeğinin kaydedileceği klasörü seçin';NativePath $picker $fixtures 'Select Folder'
+            $package=([Windows.Automation.ValuePattern](ById $root 'BrowserWizardPackagePath').GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern)).Current.Value
+            if(!(Split-Path (Split-Path $package) -Leaf).Contains(' - Sahip belirtilmedi - ')){throw 'Browser backup folder lacks computer-owner-date'}
+            $result.browserReadableFolderVerified=$true
             function SetTestPassword([string]$id,[string]$value){$box=ById $root $id;try{([Windows.Automation.ValuePattern]$box.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern)).SetValue($value)}catch{[NoticeCloser]::SetForegroundWindow([IntPtr]$root.Current.NativeWindowHandle)|Out-Null;$box.SetFocus();[Windows.Forms.SendKeys]::SendWait('^a');[Windows.Forms.SendKeys]::SendWait($value)};Start-Sleep -Milliseconds 100}
             function WizardConsent{([Windows.Automation.TogglePattern](ById $root 'BrowserBackupConsent').GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Toggle();Start-Sleep -Milliseconds 150}
             if((ById $root 'BrowserWizardPasswordLabel').Current.Name -ne 'Yedek parolası (en az 8 karakter)'){throw 'Backup password label incorrect'}
@@ -360,7 +365,9 @@ jobs:
             SelectTab 'Yapay Zeka Hata Analizi';Click $root 'Yapay Zeka Ayarları';$settings=FindWindow 'Yapay Zeka Ayarları / API Anahtarı'
             if(([Windows.Automation.TogglePattern](ById $settings 'AutomaticGeminiConsent').GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Current.ToggleState -ne [Windows.Automation.ToggleState]::On){throw 'Saved consent not loaded after restart'}
             Toggle $settings 'AutomaticGeminiConsent';Click $settings 'Kaydet'
-            $stored=Get-Content $settingsFile|ConvertFrom-Json;if($stored.Profiles.Gemini.AutomaticSummaryConsent){throw 'Consent not revoked'}
+            if(([Windows.Automation.TogglePattern](ById $settings 'AutomaticGeminiConsent').GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Current.ToggleState -ne [Windows.Automation.ToggleState]::Off){throw 'Consent toggle did not turn off'}
+            for($i=0;$i -lt 30;$i++){Start-Sleep -Milliseconds 100;$stored=Get-Content $settingsFile|ConvertFrom-Json;if(!$stored.Profiles.Gemini.AutomaticSummaryConsent){break}}
+            if($stored.Profiles.Gemini.AutomaticSummaryConsent){throw 'Consent not revoked after save completed'}
             Choose $settings 'AiProviderChoice' 'Çevrimdışı';Click $settings 'Kaydet';CloseWindow $settings
             $expander=FindNamed $root 'Elle hata sorgula / Gemini kurulumu' ([Windows.Automation.ControlType]::Group)
             if(!$expander){$expander=FindNamed $root 'Elle hata sorgula / Gemini kurulumu' ([Windows.Automation.ControlType]::Button)}
