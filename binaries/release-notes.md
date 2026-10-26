@@ -1,5 +1,12 @@
-Teknik Servis PRO 1.10.12
-- Uygulama açıldığında ilk menü olan İnternet Sorunları ekranı seçilir; son ziyaret edilen ekran açılışı değiştirmez.
-- Üst başlık sade Bahnschrift yazı karakteri ve küçük PRO etiketiyle yenilendi. Segoe UI yedek yazı tipidir; dışarıdan font kurulumu gerekmez.
-- Başlık dar pencerede büyütülmeden ölçeklenir, işlem düğmeleriyle çakışmaz. Maksimize açılış ve mevcut menü sırası korunur.
-- Data/Drivers, geçmiş, yedekler ve yapay zeka ayarları korunur.
+Teknik Servis PRO 1.11.0
+- Sağlam PC referansı: aynı anakart, Windows derlemesi ve mimaride sürücü/hizmet/güç planı farklarını gösterir; ayarları kopyalamaz.
+- Baskı izi: seçili kuyruğu, işleri, hizmeti ve ağ portlarını izler; fiziksel çıktı ayrıca kullanıcı tarafından doğrulanır.
+- Son değişiklikler: Sistem günlüğü, SetupAPI aygıt kurulumu başlangıçları ve güncelleme tarihleri birlikte listelenir; zaman yakınlığı neden kanıtı değildir.
+- Değişen yazıcı IP'si: kayıtlı tekil WSD kimliğini bulur; kullanıcı onayıyla standart RAW/LPR portunun ayarlarını koruyarak taşır. WSD desteklemeyen cihazı model adına göre eşleştirmez.
+- Desteklenen geri alma: bu sürümde kaydedilen yazıcı portu ve değişen IPv4 DNS ayarları; sonradan değişen ayarı ezmez. Arşivli sürücü geri yükleme mevcut akıştadır; bütün ağ sıfırlama etkileri geri alınamaz.
+- Aralıklı ağ izleme: 30 örnekte bağlantı/ağ geçidi/DNS/web sonuçları ve saatleri; durdurma ve kısmi örnekleri koruma.
+- Format dönüş planı: bu PC'nin dosya yedekleri, cihaz profilleri, sürücü arşivi, seçilen yer imi paketi ve geçmiş işlem kayıtları tek kontrol listesinde. Toplu geri yükleme/uygulama kurulumu yapmaz.
+- Disk/pil erken uyarıları: Windows'un desteklediği sağlık ve kapasite alanları; kapsamlı taramaya da eklendi. RAID/USB/üretici sınırları açık belirtilir; tüm SMART sensörleri okunmaz.
+- Yerel çözüm hafızası: diğer PC'lerde aynı kesin donanım kimliği/sınıf/hata koduyla doğrulanmış sürücü kurulumları ve kaynak zamanı/paket özeti. Otomatik kurulum yapılmaz.
+- Yapay zeka ekranındaki tekrarlanan elle sorgulama/Gemini kurulumu kaldırıldı. Yeni başlık: Yapılan İşlemler ve Çözüm Önerileri. API ayarları tek pencerede korunur.
+- Data/Drivers, güncelleme kimliği, kayıtlı ayarlar ve mevcut yedekler korunur. Donanım özellikleri cihaz/sürücü/ağ desteğine bağlıdır.
