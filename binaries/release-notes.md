@@ -1,12 +1,7 @@
-Teknik Servis PRO 1.11.0
-- Sağlam PC referansı: aynı anakart, Windows derlemesi ve mimaride sürücü/hizmet/güç planı farklarını gösterir; ayarları kopyalamaz.
-- Baskı izi: seçili kuyruğu, işleri, hizmeti ve ağ portlarını izler; fiziksel çıktı ayrıca kullanıcı tarafından doğrulanır.
-- Son değişiklikler: Sistem günlüğü, SetupAPI aygıt kurulumu başlangıçları ve güncelleme tarihleri birlikte listelenir; zaman yakınlığı neden kanıtı değildir.
-- Değişen yazıcı IP'si: kayıtlı tekil WSD kimliğini bulur; kullanıcı onayıyla standart RAW/LPR portunun ayarlarını koruyarak taşır. WSD desteklemeyen cihazı model adına göre eşleştirmez.
-- Desteklenen geri alma: bu sürümde kaydedilen yazıcı portu ve değişen IPv4 DNS ayarları; sonradan değişen ayarı ezmez. Arşivli sürücü geri yükleme mevcut akıştadır; bütün ağ sıfırlama etkileri geri alınamaz.
-- Aralıklı ağ izleme: 30 örnekte bağlantı/ağ geçidi/DNS/web sonuçları ve saatleri; durdurma ve kısmi örnekleri koruma.
-- Format dönüş planı: bu PC'nin dosya yedekleri, cihaz profilleri, sürücü arşivi, seçilen yer imi paketi ve geçmiş işlem kayıtları tek kontrol listesinde. Toplu geri yükleme/uygulama kurulumu yapmaz.
-- Disk/pil erken uyarıları: Windows'un desteklediği sağlık ve kapasite alanları; kapsamlı taramaya da eklendi. RAID/USB/üretici sınırları açık belirtilir; tüm SMART sensörleri okunmaz.
-- Yerel çözüm hafızası: diğer PC'lerde aynı kesin donanım kimliği/sınıf/hata koduyla doğrulanmış sürücü kurulumları ve kaynak zamanı/paket özeti. Otomatik kurulum yapılmaz.
-- Yapay zeka ekranındaki tekrarlanan elle sorgulama/Gemini kurulumu kaldırıldı. Yeni başlık: Yapılan İşlemler ve Çözüm Önerileri. API ayarları tek pencerede korunur.
-- Data/Drivers, güncelleme kimliği, kayıtlı ayarlar ve mevcut yedekler korunur. Donanım özellikleri cihaz/sürücü/ağ desteğine bağlıdır.
+Teknik Servis PRO 1.11.1 — açıklama kaynağı ve Gemini kota bilgisi
+- Her özet maddesinde yapay zeka ile yorumlandı/Gemini, önceki Gemini yorumu veya yapay zeka kullanılmadı/uygulamanın kendi açıklaması etiketi.
+- Kota/istek sınırına ulaşılınca HTTP 429 nedeni, yerel açıklamaya geçildiği ve 15 dakikalık otomatik sorgu arası açıkça gösterilir. Bu süre kotanın yenilenme garantisi değildir.
+- Otomatik model seçimi sırasında gelen 429 bilgisi korunur. Bağlantı, erişim/model hataları ve zaman aşımı kota dolması olarak gösterilmez. Bekleme yalnız aynı API anahtarına uygulanır.
+- İlk 80 adımın dışındaki yerel maddeler ve iptal/zaman aşımı durumları ayrı kaynak bilgisi taşır. Gerçek işlem başarı/arıza renkleri yapay zeka yorumuyla değişmez.
+- Kaydedilen özetlerde her maddenin kaynağı ve kota/fallback nedeni korunur. Geçmişe kaydetme hatası, üretilmiş Gemini yorumunu yapay zeka kullanılmadı diye değiştirmez.
+- Yapay zeka ve İşlem Durumu ekranları birlikte güncellendi. API anahtarı, model, mevcut onaylar, Data/Drivers ve önceki özellikler korunur.
