@@ -134,7 +134,12 @@ jobs:
             function AssertLocalAttribution($window){
               $labels=$null
               for($ready=0;$ready -lt 100;$ready++){$labels=$window.FindAll($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty,'SummarySourceLabel'));if($labels.Count -gt 0){break};Start-Sleep -Milliseconds 100}
-              if($labels.Count -lt 1){throw 'No per-row explanation source label after bounded window readiness wait'}
+              if($labels.Count -lt 1){
+                try{Screenshot $window 'source-missing-window.png'}catch{}
+                @($window.FindAll($scope,[Windows.Automation.Condition]::TrueCondition)|ForEach-Object{[ordered]@{name=$_.Current.Name;id=$_.Current.AutomationId;type=$_.Current.ControlType.ProgrammaticName;offscreen=$_.Current.IsOffscreen;enabled=$_.Current.IsEnabled}})|ConvertTo-Json -Depth 4|Set-Content "$dir/source-missing-tree.json"
+                @(ProcessWindows|ForEach-Object{[ordered]@{name=$_.Current.Name;handle=$_.Current.NativeWindowHandle;offscreen=$_.Current.IsOffscreen;enabled=$_.Current.IsEnabled}})|ConvertTo-Json|Set-Content "$dir/source-process-windows.json"
+                throw 'No per-row explanation source label after bounded window readiness wait'
+              }
               foreach($label in $labels){if($label.Current.Name -ne 'Yapay zeka kullanılmadı — uygulamanın kendi açıklaması'){throw ('Unexpected source: '+$label.Current.Name)}}
               $note=ById $window 'SummarySourceNote';if(!$note -or !$note.Current.Name.Contains('seçili değil')){throw 'Local source reason missing'}
               $status=ById $window 'AutoSummaryStatus';if(!$status.Current.Name.Contains('Yapay zeka kullanılmadı')){throw 'Summary status conceals local source'}
@@ -221,6 +226,7 @@ jobs:
             ${{ runner.temp }}/exact-archive-review/scan-*.txt
             ${{ runner.temp }}/exact-archive-review/threat-detections.json
             ${{ runner.temp }}/exact-archive-review/*.png
+            ${{ runner.temp }}/exact-archive-review/source-*.json
             ${{ runner.temp }}/summary-results.txt
 
           retention-days: 14
