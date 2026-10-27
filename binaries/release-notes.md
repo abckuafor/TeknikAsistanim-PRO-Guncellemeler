@@ -1,9 +1,8 @@
-## Listeler artık geniş açılır pencerelerde
+## Açıklamalar, pencere kontrolleri ve tam metin özetler
 
-- Klasörleri Listele: klasör/dosya seçimi, ekleme ve listeden kaldırma ayrı geniş pencerede. Açıp kapatmak seçimleri ve ek kaynakları sıfırlamaz.
-- Tarayıcıları Listele: Chrome/Edge profil ve yer imi listesi geniş pencerede; seçimler korunur, kapatınca yedekleme sihirbazına devam edilir.
-- Donanım/sürücü, yazıcı, tarayıcı cihazı, bilgisayar geçmişi, yedek kataloğu ve güncelleme listeleri de ana ekranı sıkıştırmadan ayrı pencerede açılır.
-- İşlem özetleri mevcut geniş sonuç penceresinden incelenir. Önceden açılır penceredeki tablo ekranları da geniş boyut kullanır.
-- Aktif liste penceresine bağlı dosya/klasör seçicileri, Esc ile kapatma, yeniden boyutlandırma ve boş yedek kataloğu açıklaması.
+- Donanım Test Merkezi'nin ana düğmeleri, süre/bellek/disk alanları, destek bağlantıları ve test/onarım işlemlerine kısa Türkçe fare üstü açıklamaları ve erişilebilir yardım metni eklendi. Pasif düğmelerin açıklamaları da okunabilir.
+- Ortak açılır pencere başlığında yalnız küçült ve kapat düğmeleri var. Pencereler kenarlarından boyutlandırılabilir; küçültüldükten sonra görev çubuğundan geri açılabilir. Onay bekleyen ekranı küçültmek onay vermez.
+- Madde açıklamalarındaki 360, yapay zeka yorumlarındaki 400 ve sonraki adımdaki 260 karakter kesmeleri kaldırıldı. Uzun açıklamalar ve kaydedilen raporlar tam metni korur; kaydırılarak son satıra ulaşılır.
+- Gemini'nin tamamlanmamış yanıtları tam yorum diye gösterilmez; yerel tam açıklama korunur ve neden belirtilir. API güvenlik/kota sınırları korunur; ek otomatik tekrar isteği eklenmez.
 
-Data/Drivers, geçmiş ve AI ayarları, yedekleme/geri yükleme motoru ve güncelleme kimliği korunur. Bu sürümün doğrulaması sentetik klasör/dosya/yer imi verileriyle Windows arayüzüne ve Defender taramasına odaklanır; gerçek müşteri dosyaları, şifreleri veya API anahtarları kullanılmaz.
+Data/Drivers, geçmiş, API ayarları ve güncelleme kimliği korunur. Veri taşıma paketi ve sunucu eşitlemesi bu sürüme dahil değildir. Testler sentetik veri ve sahte HTTP ile yapılır; müşteri anahtarı/dosyaları veya fiziksel donanım onarımı kullanılmaz.
