@@ -170,14 +170,16 @@ jobs:
             InvokeId $root 'OpenScannerList';$panel=FindWindow 'Tarayıcı Cihazları ve İşlemleri';AssertVisible $panel 'ScannerSourceList';if(!(ById $panel 'ScannerSettings')){throw 'Scanner actions lost'};Screenshot $panel 'scanners-wide.png';CloseWindow $panel
             $result.phase='Catalog find auto-opens a dedicated empty-state window'
             SelectTab 'Format Yedekle / Yükle';$empty=Join-Path $dir 'empty-backup-location';New-Item -ItemType Directory $empty -Force|Out-Null
+            for($catalogCycle=0;$catalogCycle -lt 2;$catalogCycle++){
             Click $root 'Bu Bilgisayarın Yedeklerini Bul';$picker=FindWindow 'Yedeklerin bulunduğu klasörü seçin';FillPicker $picker $empty
             $panel=FindWindow 'Bu Bilgisayarın Yedekleri';if(!(TextOf $panel).Contains('yedek bulunamadı')){throw 'Empty catalog state was not explained'};CloseWindow $panel
             foreach($w in (ProcessWindows|Where-Object {$_.Current.Name -eq 'İşlem Durumu'})){CloseWindow $w}
+            }
             for($cycle=0;$cycle -lt 3;$cycle++){InvokeId $root 'OpenFormatSources';$panel=FindWindow 'Yedeklenecek Klasör ve Dosyalar';CloseWindow $panel;SelectTab 'Arama Motoru Yedekleme';InvokeId $root 'OpenBrowserProfiles';$panel=FindWindow 'Tarayıcı Profilleri ve Yer İmleri';CloseWindow $panel;SelectTab 'Format Yedekle / Yükle'}
             SelectTab 'Yapay Zeka Ayarları';InvokeId $root 'OpenAiSummaryList';$panel=FindWindow 'İşlem Özetlerini Aç';CheckModern $panel;CloseWindow $panel
             SelectTab 'Donanım Test Merkezi';InvokeId $root 'OpenHardwareQuick';$panel=FindWindow 'Donanım Test Merkezi — Hızlı Kontrol';CloseWindow $panel
             SelectTab 'İnternet Sorunları';InvokeId $root 'OpenInternetSpeedDetails';$panel=FindWindow 'İnternet Bağlantısı ve Hız Bilgileri';if(!(ById $panel 'InternetUploadGauge')){throw 'Upload gauge missing from existing speed popup'};CloseWindow $panel
-            $result.listUiChecks=@{eightListWorkspaces=$true;sourceSelectAll=$true;sourceSelectionPreserved=$true;addFileAndFolder=$true;pickerCancellation=$true;removeDoesNotDeleteSource=$true;browserDiscovery=$true;browserSelectionPreserved=$true;wizardContinuity=$true;wideAndNarrowResize=$true;catalogAutoPopup=$true;catalogEmptyState=$true;summaryPopup=$true;repeatNavigation=$true;escClose=$true;hardwareAndSpeedPopupRegression=$true}
+            $result.listUiChecks=@{eightListWorkspaces=$true;sourceSelectAll=$true;sourceSelectionPreserved=$true;addFileAndFolder=$true;pickerCancellation=$true;removeDoesNotDeleteSource=$true;browserDiscovery=$true;browserSelectionPreserved=$true;wizardContinuity=$true;wideAndNarrowResize=$true;catalogAutoPopup=$true;catalogRepeatNoLostRequest=$true;catalogEmptyState=$true;summaryPopup=$true;repeatNavigation=$true;escClose=$true;hardwareAndSpeedPopupRegression=$true}
             $result.hardwareScope='Layout/list UX change only. Windows production EXE list/picker/selection/wizard/navigation and preservation checked with synthetic file/folder/bookmark fixtures. No actual backup/restore, repair, GPU/RAM hardware stress, real customer data, password collection or API test was run.'
             $app.Refresh();$result.mainWindowEnabled=$root.Current.IsEnabled
             if(!$root.Current.IsEnabled){throw 'Main window remained disabled after dialogs'}
