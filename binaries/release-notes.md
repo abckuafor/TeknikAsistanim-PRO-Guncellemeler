@@ -1,10 +1,10 @@
-## İşlem sonuçları tek özette
+## Donanım testleri ve daha kısa kapanış hazırlığı
 
-- İşlem Durumu penceresindeki Madde madde özet, Kolay anlatım ve Genel durum girişleri tek “İşlem özeti” bölümünde birleştirildi. Teknik ayrıntılar ve Not ekle / kaydet ayrı, geniş pencereler olarak kalır.
-- Her kayıtlı cihaz/işlem tek kartta, sonuç rengi/simgesi, anlaşılır açıklama, sonraki adım ve varsa etiketli Gemini yorumuyla gösterilir. Önceki ve yeni kayıtların tamamı korunur; aynı adlı farklı adımlar birleştirilmez ve yorumlar başka cihaza/adıma aktarılmaz.
-- Tamamlanan, tamamlanamayan, durdurulan ve kontrol/yeniden başlatma bekleyen adım sayıları aynı ekrandadır. Sonuç üretmeyen yeni işlemler önceki sonuçlar diye açıkça işaretlenir.
-- Sonuç kartlarında bulunmayan diğer bildirimler, aynı penceredeki açılabilir alanda saatleriyle korunur. Tekrar eden aynı mesaj bir kez gösterilir. Kayıt henüz yoksa güncel bildirimler açık gösterilir.
-- Yapay zeka kullanılıp kullanılmadığı kartta belirtilir. Ortak kota/bağlantı açıklaması üstte bir kez gösterilir; teknik çıktı ve hata kodları ayrı bölümde kalır. API onayı, gönderilen veri kapsamı ve istek sınırları değişmez.
-- Uzun açıklamalar kaydırılarak tamamen okunur. Bölümler arasında geçişte yazılmış notlar korunur; özeti geçmişe kaydetme tüm görünür işlem adımlarını kapsar.
+- Ekran kontrolü 7 renk/deseni otomatik sırayla gösterir; her desende 25 yazılım renk örneği karşılaştırılır. Bu, yazılımda oluşturulan test görüntüsünün kontrolüdür; fiziksel ölü/takılı piksel veya panel sağlamlığı otomatik doğrulanmaz. Kullanıcının fiziksel gözlemi ayrı kaydedilir. Elle renk değiştirme ve Esc ile çıkma korunur.
+- Donanım pencerelerine “? Sayılar ne anlama geliyor?” eklendi: süreler, RAM örnek alanı, iş parçacıkları, 85 °C önlemi, disk okuma örneği, pil kapasite eşikleri ve sensörlerin kapsamı açıklanır. Bu değerler evrensel sağlık puanı veya üretici limiti diye sunulmaz.
+- Sağlık kontrolü Windows disk/pil/sensör kayıtlarını değerlendirir; okunamayan veya inceleme isteyen başlıklar kısmi kontrol olarak raporlanır. CPU/RAM/GPU yük testleri, disk ve yeniden başlatmalı RAM kontrolleri mevcut kapsam/onaylarıyla korunur. Voltaj/overclock veya otomatik yeniden başlatma eklenmedi.
+- İşlem kayıtları çalışma klasörlerine yazılır; Data/Drivers'ın taşınabilir EXE paketi uygulama açıkken, dosyalar durulduğunda arka planda hazırlanır. Aktif işlem başladığında hazırlık duraklatılır. Son anda değişen/silinen dosya varsa eski paket kullanılmaz.
+- Hazır ve yazmaya karşı kilitlenmiş paket, aynı disk üzerinde kapanışta yeniden tam kopyalanmadan yerleştirilir. Yardımcıya bütün eski veri yükü yerine uygulama kodu alınır; sabit kapanış beklemesi kısaltıldı. Son değişiklik veya farklı disk/FAT koşullarında güvenli tamamlama beklemesi gerekebilir. Sıfır bekleme garantisi verilmez.
+- Kaynak EXE ve doğrulanmış hazır paket işlem boyunca yazmaya karşı tutulur; yardımcı kimliği/kanalı, özel geçici klasör izinleri, klasör taşıma kilitleri ve geri dönüş yedeği korunur. Fiziksel medya bozulması ve bir sonraki açılışta paket bütünlüğü kontrolleri devam eder.
 
-Kompakt otomatik başlıklar, Data/Drivers'ın EXE içinde taşınması, mevcut kayıtlar, ayarlar ve güncelleme kimliği korunur. Testler sentetik veri/sahte HTTP ile yapılır; gerçek müşteri verisi, API anahtarı veya fiziksel cihaz işlemi kullanılmaz.
+Kişisel EXE kayıtları içerir; kamuya yalnız boş uygulama yayımlanır. Çalışma/kurtarma klasörlerini ani kapanma veya hata durumunda silmeyin. Windows testleri sentetik verilerle yapılır; gerçek müşteri verisi/API anahtarı ve fiziksel panel doğrulaması kullanılmaz.
