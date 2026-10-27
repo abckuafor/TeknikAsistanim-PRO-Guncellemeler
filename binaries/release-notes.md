@@ -1,10 +1,12 @@
-## Değerlerin yanında açıklama ve anlaşılır sonuç
+## Tek EXE ile flash bellekte taşıma
 
-- Uzun “Sayılar ne anlama geliyor?” düğmesi kaldırıldı. Süre, RAM örnek alanı, sıcaklık önlemi, disk bölümü/okuma ve GPU açıklamaları ilgili alanın yanındaki küçük “?” düğmesindedir. Her açılır açıklama yalnız seçilen alanı anlatır; genel bir kullanım yazısı açmaz.
-- Testte ve test sonrasında ölçülen/seçilen değer, beklenen değer veya karşılaştırma dayanağı ve değerlendirme aynı satır/kartta gösterilir. Her ölçümün yanında kendi “?” açıklaması bulunur.
-- CPU/RAM hata sayısı için beklenen 0, test turu için en az bir tamamlanmış tur kullanılır. İşlem sürerken/durdurulunca 0 hata tam başarı sayılmaz. Süre ve RAM örnek alanı sağlık puanı değildir.
-- ACPI termal bölge için uygulamanın <70 / 70–<85 / ≥85 °C önlem bantları açıklanır; bunlar üretici CPU/GPU çekirdek limitleri diye sunulmaz. Pil kapasitesi %80–100 / %60–<80 / <%60 bantlarında yorumlanır; %100 üzeri sayaç/kalibrasyon farkı olarak ayrılır. Okunmayan değer iyi diye gösterilmez.
-- Windows disk sağlık kodu, geçmiş hata sayaçları, örnek okuması ve WinSAT komut sonucu kendi kapsamlarında açıklanır. Model bilinmeden disk sıcaklığı, ham aşınma, fan hedefi, MHz, tur veya çalışma saati için evrensel performans/sağlık sınırı uydurulmaz.
-- Kapanıştaki kayıt pencereleri kompakt 520×280 hedef boyuta alındı. Büyük ve ortalanmış yazıyla kaydedilirken “USB belleği çıkarmayın”, tamamlanınca “Kaydedildi — çıkarabilirsiniz” gösterilir. Küçültme/kenardan boyutlandırma ve korumalı kayıt akışı korunur.
+- EXE'nin yanında Data/Drivers klasörleri gerekmiyor. Gerekli çalışma kopyaları Windows'un kullanıcıya özel uygulama alanında hazırlanıyor.
+- Normal kapanıştaki “Kaydedildi” mesajından sonra yalnız EXE'yi flash belleğe kopyalayıp başka bir Windows 10/11 x64 bilgisayarda açabilirsiniz. Kayıtlar ve sürücü dosyaları EXE'nin içindedir. Doğrudan TeknikServis_PRO.exe indirilebilir; ZIP gerekli değildir.
+- Eski sürümün uygun yerel kayıtları otomatik kopyalanarak alınır; asılları silinmez. EXE'nin yanındaki farklı/eski çalışma klasörleri yeni EXE'nin açılmasını engellemez veya kayıtlarını değiştirmez.
+- Aynı konumdaki zorla kapatılmış oturumun kurtarma kopyası korunur. Daha yeni/farklı bir veri paketiyle çakışan eski kopya silinmeden ayrı tutulur.
+- Açılış ekranı küçük ve büyük yazılı bir pencereyle sadeleştirildi. Arka plan EXE hazırlığı ana ekran açılır açılmaz başlar; kapanışta takılan başlangıç güncelleme sorgusu iptal edilir, ağ zaman aşımı beklenmez.
+- Kapanış kaydı ve otomatik güncelleme, EXE hedefinden ayrı çalışma konumunu doğrulayarak kayıtları yeni EXE'ye taşır. Yardımcı kimlik doğrulaması, dosya bütünlüğü ve tek oturum kilitleri korunur.
 
-Arka plan paket hazırlığı, aynı disk üzerindeki hızlı yerleştirme, kurtarma çalışma kopyaları, Data/Drivers, mevcut ayarlar ve güncelleme kimliği korunur. Testlerde sentetik veri/sahte HTTP ve yalnız test çalışma ortamının ayrılmış bellek örneği kullanılır; müşteri verisi, gerçek API anahtarı veya fiziksel donanım sağlamlık sertifikası kullanılmaz.
+Program açıkken kayıtlar yerel kurtarma alanına yazılır; EXE'nin son yerleştirmesi normal kapanışta tamamlanır. Zorla kapanış/elektrik kesintisi sonrası EXE'yi aynı yerden açıp normal kapatın. Windows hesabına bağlı API anahtarları farklı bilgisayarda yeniden istenebilir. EXE'nin kaydedileceği yerde yazma izni ve yeterli boş alan gerekir. Kişisel kayıt içeren EXE herkese açık paylaşılmamalıdır.
+
+Testler yalnız sentetik kayıt ve sürücüler, sahte HTTP ve ayrılmış sınırlı RAM örneği kullanır; müşteri verisine veya fiziksel cihazlara işlem uygulanmaz.
