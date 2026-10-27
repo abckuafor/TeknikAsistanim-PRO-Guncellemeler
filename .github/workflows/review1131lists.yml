@@ -165,14 +165,14 @@ jobs:
             $result.phase='Device, printer, scanner, history, update and catalog popups'
             $entries=@(@('Donanım ve Sürücüler','OpenDeviceList','Donanım ve Sürücü Listesi','DeviceSourceList'),@('Bilgisayar Geçmişi','OpenHistoryList','Bilgisayar Geçmişi — Bilgisayarlar',''),@('Güncelleme Tarihçesi','OpenUpdateList','Güncelleme Tarihçesi',''),@('Format Yedekle / Yükle','OpenFormatCatalog','Bu Bilgisayarın Yedekleri','FormatBackupCatalog'))
             foreach($entry in $entries){SelectTab $entry[0];InvokeId $root $entry[1];$panel=FindWindow $entry[2];CheckModern $panel;if($entry[3]){AssertVisible $panel $entry[3]};if($panel.Current.BoundingRectangle.Width -lt 850){throw ('Wide list window too narrow: '+$entry[2])};Screenshot $panel ($entry[1]+'.png');CloseWindow $panel;NoWorkWindow}
-            SelectTab 'Yazıcı, Barkod, Tarayıcı';InvokeId $root 'OpenPrinterList';$panel=FindWindow 'Kayıtlı Yazıcılar';AssertVisible $panel 'PrinterQueueList';Screenshot $panel 'printers-wide.png';CloseWindow $panel
+            SelectTab 'Yazıcı, Barkod, Tarayıcı';InvokeId $root 'OpenPrinterList';$panel=FindWindow 'Kayıtlı Yazıcılar';AssertVisible $panel 'PrinterQueueList';if((TextOf $panel).Contains('yedek bulunamadı')){throw 'Backup empty state leaked into printer list'};Screenshot $panel 'printers-wide.png';CloseWindow $panel
             $tab=ById $root 'ScannerToolsTab';([Windows.Automation.SelectionItemPattern]$tab.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern)).Select();Start-Sleep -Milliseconds 200
             InvokeId $root 'OpenScannerList';$panel=FindWindow 'Tarayıcı Cihazları ve İşlemleri';AssertVisible $panel 'ScannerSourceList';if(!(ById $panel 'ScannerSettings')){throw 'Scanner actions lost'};Screenshot $panel 'scanners-wide.png';CloseWindow $panel
             $result.phase='Catalog find auto-opens a dedicated empty-state window'
             SelectTab 'Format Yedekle / Yükle';$empty=Join-Path $dir 'empty-backup-location';New-Item -ItemType Directory $empty -Force|Out-Null
             for($catalogCycle=0;$catalogCycle -lt 2;$catalogCycle++){
             Click $root 'Bu Bilgisayarın Yedeklerini Bul';$picker=FindWindow 'Yedeklerin bulunduğu klasörü seçin';FillPicker $picker $empty
-            $panel=FindWindow 'Bu Bilgisayarın Yedekleri';if(!(TextOf $panel).Contains('yedek bulunamadı')){throw 'Empty catalog state was not explained'};CloseWindow $panel
+            $panel=FindWindow 'Bu Bilgisayarın Yedekleri';for($wait=0;$wait -lt 30 -and !(TextOf $panel).Contains('yedek bulunamadı');$wait++){Start-Sleep -Milliseconds 100};if(!(TextOf $panel).Contains('yedek bulunamadı')){throw 'Empty catalog state was not explained'};CloseWindow $panel
             foreach($w in (ProcessWindows|Where-Object {$_.Current.Name -eq 'İşlem Durumu'})){CloseWindow $w}
             }
             for($cycle=0;$cycle -lt 3;$cycle++){InvokeId $root 'OpenFormatSources';$panel=FindWindow 'Yedeklenecek Klasör ve Dosyalar';CloseWindow $panel;SelectTab 'Arama Motoru Yedekleme';InvokeId $root 'OpenBrowserProfiles';$panel=FindWindow 'Tarayıcı Profilleri ve Yer İmleri';CloseWindow $panel;SelectTab 'Format Yedekle / Yükle'}
