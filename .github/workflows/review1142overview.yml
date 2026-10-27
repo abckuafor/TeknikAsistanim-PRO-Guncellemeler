@@ -233,7 +233,7 @@ jobs:
             foreach($id in @('OpenUnifiedOverview','OpenTechnicalDetails','OpenOperationNotes')){$null=RequireHelp $statusWindow $id}
             foreach($old in @('Madde madde özet','Kolay anlatım','Genel durum')){if(FindNamed $statusWindow $old ([Windows.Automation.ControlType]::Button)){throw 'Duplicate legacy operation section remains'}}
             InvokeId $statusWindow 'OpenUnifiedOverview';$overview=FindWindow 'İşlem özeti';MinRestore $overview
-            if(!(ById $overview 'OverviewSteps') -or !(ById $overview 'OverviewCounts')){throw 'Unified results or counts missing'}
+            if(!(ById $overview 'OverviewSessionCaption') -or (!(ById $overview 'OverviewEmptyState') -and !(ById $overview 'SummaryFullExplanation'))){throw 'Unified overview has no readable session/results/empty state'}
             if([PopupNative]::IsWindowEnabled([IntPtr]$statusWindow.Current.NativeWindowHandle)){throw 'Overview lost its modal owner boundary'}
             Screenshot $overview 'unified-operation-overview.png';CloseWindow $overview
             InvokeId $statusWindow 'OpenTechnicalDetails';$technical=FindWindow 'Teknik ayrıntılar'
