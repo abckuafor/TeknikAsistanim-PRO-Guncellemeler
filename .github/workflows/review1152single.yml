@@ -67,7 +67,7 @@ jobs:
           Expand-Archive verification/updater-checks.zip "$env:RUNNER_TEMP/updater-checks"
           dotnet "$env:RUNNER_TEMP/updater-checks/UpdaterCancellation1152.Checks.dll" | Tee-Object "$env:RUNNER_TEMP/updater-checks-results.txt"
           if($LASTEXITCODE -ne 0){throw 'Updater cancellation checks failed'}
-      - name: Scan exact EXE and ZIP, verify popup controls and hardware hover help
+      - name: Verify standalone EXE, private workspace and compact Windows dialogs
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -370,7 +370,8 @@ jobs:
             Remove-Item (Join-Path $folder '.tsp-session.lock') -Force -ErrorAction SilentlyContinue
             $app=Start-Process $exe -WorkingDirectory $folder -PassThru;$root=WaitMain $app
             if((Get-ChildItem $folder -Force|Where-Object Name -ne 'TeknikServis_PRO.exe').Count){throw 'EXE folder recreated sidecar files after removal'}
-            CloseWindow $root;if(!$app.WaitForExit(60000)){throw 'Standalone reopen failed to close'};$reopened=WaitSaved $folder ([int]$meta.Generation+1)
+            $quickClose=[Diagnostics.Stopwatch]::StartNew();CloseWindow $root;if(!$app.WaitForExit(60000)){throw 'Standalone reopen failed to close'};$reopened=WaitSaved $folder ([int]$meta.Generation+1);$quickClose.Stop();$result.earlyCloseMilliseconds=$quickClose.ElapsedMilliseconds
+            if($quickClose.Elapsed.TotalSeconds -gt 15){throw 'Early close waited for startup instead of promptly saving the fixture'}
             $result.noAdjacentFilesRequired=$true
             $meta=dotnet $checks --inspect $exe|ConvertFrom-Json
             # Move only the EXE; deliberately add unrelated old folders at the destination.
