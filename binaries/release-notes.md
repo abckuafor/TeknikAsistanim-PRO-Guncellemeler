@@ -1,10 +1,9 @@
-## Donanım Test Merkezi
+## Listeler artık geniş açılır pencerelerde
 
-- Sol menüde Donanım ve Sürücüler'in altında yeni bölüm; her test için geniş, yeniden boyutlandırılabilir pencere.
-- 15/30/60 saniyelik sınırlı işlemci yükü ve uygulamaya ayrılan 16–128 MB RAM üzerinde desen karşılaştırması; onay, iptal ve okunabilen ACPI termal bölgesinde 85 °C durdurma.
-- Yeniden başlatmalı Windows Bellek Tanılama giriş noktası; otomatik yeniden başlatma yok.
-- Desteklenen Windows/ekran kartında WinSAT Direct3D denemesi ve üretici destek bağlantıları. Bu tam VRAM bit-hata taraması değildir.
-- Disk sağlık/SMART, pil ve desteklenen termal/fan kayıtları; salt okunur dosya örneği; ayrıca yedek ve onay gerektiren Windows dosya sistemi onarım konsolu. Fiziksel disk arızasını onardığı iddia edilmez.
-- Tam ekran renk/piksel gözlemi ve kullanıcı gözlem kaydı. Desteklenmeyen sensörler açıkça belirtilir.
+- Klasörleri Listele: klasör/dosya seçimi, ekleme ve listeden kaldırma ayrı geniş pencerede. Açıp kapatmak seçimleri ve ek kaynakları sıfırlamaz.
+- Tarayıcıları Listele: Chrome/Edge profil ve yer imi listesi geniş pencerede; seçimler korunur, kapatınca yedekleme sihirbazına devam edilir.
+- Donanım/sürücü, yazıcı, tarayıcı cihazı, bilgisayar geçmişi, yedek kataloğu ve güncelleme listeleri de ana ekranı sıkıştırmadan ayrı pencerede açılır.
+- İşlem özetleri mevcut geniş sonuç penceresinden incelenir. Önceden açılır penceredeki tablo ekranları da geniş boyut kullanır.
+- Aktif liste penceresine bağlı dosya/klasör seçicileri, Esc ile kapatma, yeniden boyutlandırma ve boş yedek kataloğu açıklaması.
 
-Voltaj/overclock değişmez. Kısa test sonucu tüm donanımın sağlamlığı garantisi değildir. Veri/Drivers, mevcut yedekleme ve güncelleme kimliği korunur. Yayın öncesi Windows arayüzü, iptal/onay, sentetik dosya bütünlüğü ve Defender kontrolleri uygulanır; müşteri donanımında fiziksel sertifikasyon yapılmamıştır.
+Data/Drivers, geçmiş ve AI ayarları, yedekleme/geri yükleme motoru ve güncelleme kimliği korunur. Bu sürümün doğrulaması sentetik klasör/dosya/yer imi verileriyle Windows arayüzüne ve Defender taramasına odaklanır; gerçek müşteri dosyaları, şifreleri veya API anahtarları kullanılmaz.
