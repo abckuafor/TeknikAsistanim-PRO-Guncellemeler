@@ -137,7 +137,7 @@ jobs:
             function InvokeId($w,$id){$b=ById $w $id;if(!$b){throw "Missing: $id"};([Windows.Automation.InvokePattern]$b.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern)).Invoke()}
             function TextOf($w){return ($w.FindAll($scope,[Windows.Automation.Condition]::TrueCondition)|ForEach-Object {$_.Current.Name}) -join "`n"}
             function ScrollTo($element){$x=$null;if($element.TryGetCurrentPattern([Windows.Automation.ScrollItemPattern]::Pattern,[ref]$x)){$x.ScrollIntoView();Start-Sleep -Milliseconds 200}}
-            function WaitReady($panel){for($i=0;$i -lt 240;$i++){foreach($w in (ProcessWindows|Where-Object {$_.Current.Name -eq 'İşlem Durumu'})){if((ById $w 'OperationState').Current.Name -ne 'İşlem devam ediyor'){CloseWindow $w}};$health=ById $panel 'HardwareHealth';if($health -and $health.Current.IsEnabled -and $panel.Current.IsEnabled){return};Start-Sleep -Milliseconds 250};throw 'Hardware command did not release busy state'}
+            function WaitReady($panel){for($i=0;$i -lt 240;$i++){foreach($w in (ProcessWindows|Where-Object {$_.Current.Name -eq 'İşlem Durumu'})){if((ById $w 'OperationState').Current.Name -ne 'İşlem devam ediyor'){CloseWindow $w}};$health=ById $panel 'HardwareHealth';if($health -and $health.Current.IsEnabled -and $panel.Current.IsEnabled){Start-Sleep -Milliseconds 300;foreach($done in (ProcessWindows|Where-Object {$_.Current.Name -eq 'İşlem Durumu'})){if((ById $done 'OperationState').Current.Name -ne 'İşlem devam ediyor'){CloseWindow $done}};return};Start-Sleep -Milliseconds 250};throw 'Hardware command did not release busy state'}
             $result.phase='Hardware navigation and separate popup controls'
             if(!(ById $root 'FixInternetAll')){throw 'Startup changed from Internet page'}
             $tabs=@($root.FindAll($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::TabItem)))
@@ -161,7 +161,7 @@ jobs:
                 Screenshot $panel 'hardware-disk-narrow.png'
               }
               if($entry[1] -eq 'İşlemci testi'){Screenshot $panel 'hardware-cpu.png';InvokeId $panel 'StartHardwareLoad';$confirm=FindWindow 'İşlem onayı';if(!(TextOf $confirm).Contains('Voltaj')){throw 'CPU confirmation scope missing'};Click $confirm 'Vazgeç';WaitReady $panel}
-              Click $panel 'Kapat';Start-Sleep -Milliseconds 200;if(!$root.Current.IsEnabled){throw 'Hardware popup owner not restored'}
+              CloseWindow $panel;Start-Sleep -Milliseconds 200;if(!$root.Current.IsEnabled){throw 'Hardware popup owner not restored'}
             }
             $result.phase='Hardware readonly synthetic file and repair guard'
             Click $root 'HDD / SSD ve Dosya Sistemi';$panel=FindWindow 'Donanım Test Merkezi — HDD / SSD ve dosya sistemi'
@@ -174,12 +174,12 @@ jobs:
             Click $panel 'Salt Okunur Dosya Örneği';$confirm=FindWindow 'İşlem onayı';Click $confirm 'Devam Et';WaitReady $panel
             $status=(ById $panel 'HardwareTestStatus').Current.Name;if(!$status.Contains('örnek okundu')){throw ('Synthetic readonly sample failed: '+$status)}
             if((Get-FileHash $fixture -Algorithm SHA256).Hash -ne $fixtureHash){throw 'Readonly sample modified fixture'}
-            Click $panel 'Kapat'
+            CloseWindow $panel
             $result.phase='Hardware screen ESC and observation deferral'
             InvokeId $root 'OpenScreenCheck';$screen=FindWindow 'Ekran Renk / Piksel Kontrolü';Click $screen 'Sonraki';Click $screen 'Önceki';Screenshot $screen 'hardware-screen.png'
             [NoticeCloser]::SetForegroundWindow([IntPtr]$screen.Current.NativeWindowHandle)|Out-Null;[Windows.Forms.SendKeys]::SendWait('{ESC}')
             $observe=FindWindow 'Ekran gözlemi';Click $observe 'Sonra Kontrol Edeceğim';Start-Sleep -Milliseconds 500
-            for($cycle=0;$cycle -lt 3;$cycle++){SelectTab 'İnternet Sorunları';SelectTab 'Donanım ve Sürücüler';SelectTab 'Donanım Test Merkezi';InvokeId $root 'OpenHardwareQuick';$panel=FindWindow 'Donanım Test Merkezi — Hızlı Kontrol';Click $panel 'Kapat'}
+            for($cycle=0;$cycle -lt 3;$cycle++){SelectTab 'İnternet Sorunları';SelectTab 'Donanım ve Sürücüler';SelectTab 'Donanım Test Merkezi';InvokeId $root 'OpenHardwareQuick';$panel=FindWindow 'Donanım Test Merkezi — Hızlı Kontrol';CloseWindow $panel}
             SelectTab 'Format Yedekle / Yükle';if(!(ById $root 'FormatSourceList')){throw 'Format tab mapping changed'}
             SelectTab 'Arama Motoru Yedekleme';if(!(ById $root 'BrowserWizardMode')){throw 'Browser tab mapping changed'}
             SelectTab 'İnternet Sorunları';InvokeId $root 'OpenInternetSpeedDetails';$speed=FindWindow 'İnternet Bağlantısı ve Hız Bilgileri';if(!(ById $speed 'InternetUploadGauge')){throw 'Speed popup regression'};Click $speed 'Kapat'
