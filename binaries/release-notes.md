@@ -1,10 +1,8 @@
-## Data ve Drivers artık taşınabilir EXE içinde
+## Daha ince, otomatik uyum sağlayan pencere başlıkları
 
-- Normal kapanışta güncel Data ve Drivers doğrulanmış bir paket olarak EXE içine kaydedilir. Kaydetme penceresi tamamlandığında yalnız EXE başka bilgisayardaki boş, yazılabilir klasöre taşınabilir.
-- Açılışta kod/paket SHA256 özetleri ve her dosyanın bütünlüğü kontrol edilir. Uygulama klasöründe kurtarılabilir çalışma kopyaları oluşur. Farklı kayıtların üzerine sessiz yazılmaz.
-- Zorla kapatma/elektrik kesintisi/kaydetme hatasında son değişiklikler çalışma kopyalarında kalabilir; bu durumda Data/Drivers silinmemeli ve normal kapanış yeniden tamamlanmalıdır.
-- Güncellemenin GitHub kaynak/EXE doğrulamaları korunur; doğrulanmış yeni uygulama koduna güncel kayıtlar eklenir. Geçici güncelleme yardımcıları pakete tekrar alınmaz. Önceki kapanış EXE’si tek dönen kurtarma yedeği olarak tutulur.
-- Dosya içerikleri, değiştirilme zamanı, boş klasörler, mevcut veri tabanı/geçmiş/ayarlar ve sürücü arşivi korunur. Sadece aynı klasörde tek uygulama/veri kaydetme işlemi çalışabilir.
-- “Tek EXE bilgisi” güvenli taşıma, büyüme, boş alan ve kurtarma koşullarını açıklar; fare üstü ve erişilebilir yardım eklendi.
+- Uygulamanın ortak açılır pencere başlığındaki sabit 56 piksel yükseklik kaldırıldı. Başlık içerikten ölçülür; normal yazı boyutunda yaklaşık 38 piksel yüksekliğindedir, büyük yazıda gerektiği kadar büyür. Windows ekran ölçeklemesi WPF ölçülerine uygulanır.
+- Küçült ve kapat düğmeleri aynı ölçüde, ortalanmış ve fare üstü/erişilebilir açıklamalıdır. Sayfadaki büyük düğme stilleri başlık barını şişirmez.
+- Başlığın gerçek ölçüsü Windows'un taşıma alanıyla eşleştirilir; üst boyutlandırma kenarı ayrıca hesaba katılır. Taşıma alanı alttaki içerik ve düğmelerin üzerine uzanmaz.
+- Kenardan boyutlandırma, görev çubuğuna küçültme ve geri açma, onay pencerelerinin davranışı ve kullanıcı seçimleri korunur.
 
-Önemli: Kişisel EXE artık kayıtlarınızı içerir; herkese açık yerde paylaşmayın. Bu özellik ek şifreleme sağlamaz. Windows korumalı API anahtarları başka bilgisayarda yeniden girilmeyi gerektirebilir. Sunucu/bulut eşitlemesi eklenmedi. Testlerde yalnız sentetik veriler kullanılır; müşteri dosyası, gerçek API anahtarı veya fiziksel cihaz işlemi kullanılmaz. Kamuya yayımlanan EXE veri içermez; her kullanıcının verileri kendi bilgisayarında eklenir.
+Data/Drivers'ın EXE içine normal kapanışta kaydedilmesi, kurtarma çalışma kopyaları, güncelleme kimliği, mevcut kayıtlar ve ayarlar korunur. Yayımlanan EXE kişisel kayıt içermez. Windows testlerinde yalnız sentetik veri kullanılır; fiziksel cihaz veya gerçek API işlemi yapılmaz.
