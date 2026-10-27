@@ -336,7 +336,7 @@ jobs:
             if($meta.BaseSha256.ToLowerInvariant() -ne $result.exeSha256){throw 'Personalization changed application code'}
             $result.personalizedExeGeneration=$meta.Generation
             # Move only the EXE, with no adjacent Data/Drivers.
-            $carry=Join-Path $dir 'carry-only-exe';New-Item -ItemType Directory $carry|Out-Null
+            $carry=Join-Path $env:LOCALAPPDATA ('TeknikServisPRO_CI_Carry_'+[Guid]::NewGuid().ToString('N'));New-Item -ItemType Directory $carry|Out-Null
             Copy-Item $exe (Join-Path $carry 'TeknikServis_PRO.exe')
             $app=Start-Process (Join-Path $carry 'TeknikServis_PRO.exe') -WorkingDirectory $carry -PassThru
             $root=WaitMain $app
@@ -355,9 +355,18 @@ jobs:
               if(!$duplicate.WaitForExit(10000)){throw 'Second-instance notice did not close'}
             }
             [IO.File]::WriteAllText((Join-Path $carry 'Data/after-transport.txt'),'synthetic-new-record')
-            CloseWindow $root
+            $carryWriteUtc=[DateTime]::UtcNow.AddMilliseconds(-200)
+            $carryReady=$null
+            $carryCacheRoots=@((Join-Path $carry 'Data/Updates/Pending'),(Join-Path $env:ProgramFiles 'TeknikServisPRO_UpdateStaging'),(Join-Path $env:LOCALAPPDATA 'TeknikServisPRO_BundleStaging'))
+            for($i=0;$i -lt 160;$i++){foreach($cacheRoot in $carryCacheRoots){if(Test-Path $cacheRoot){foreach($entry in (Get-ChildItem $cacheRoot -Directory -ErrorAction SilentlyContinue)){$marker=Join-Path $entry.FullName 'checkpoint-ready.json';if(Test-Path $marker){$m=Get-Content $marker|ConvertFrom-Json;if([DateTime]$m.PreparedUtc -ge $carryWriteUtc){$carryReady=$marker}}}}};if($carryReady){break};Start-Sleep -Milliseconds 250}
+            if(!$carryReady){throw 'Same-volume carry snapshot was not ready'}
+            if([IO.Path]::GetPathRoot($carryReady) -ne [IO.Path]::GetPathRoot($carry)){throw 'Same-volume fast commit path was not exercised'}
+            $carryWatch=[Diagnostics.Stopwatch]::StartNew();CloseWindow $root
             if(!$app.WaitForExit(60000)){throw 'Transported app normal close failed'}
             $second=WaitSaved $carry ([int]$meta.Generation+1)
+            $carryWatch.Stop();$result.sameVolumeWarmCloseMilliseconds=$carryWatch.ElapsedMilliseconds
+            if(!$second.preparedInBackground){throw 'Same-volume close failed to reuse ready snapshot'}
+            $result.sameVolumePreparedCommitVerified=$true
             $again=Join-Path $dir 'carry-second-generation';New-Item -ItemType Directory $again|Out-Null;Copy-Item (Join-Path $carry 'TeknikServis_PRO.exe') (Join-Path $again 'TeknikServis_PRO.exe')
             $app=Start-Process (Join-Path $again 'TeknikServis_PRO.exe') -WorkingDirectory $again -PassThru;$root=WaitMain $app
             if([IO.File]::ReadAllText((Join-Path $again 'Data/after-transport.txt')) -ne 'synthetic-new-record'){throw 'Second-generation record missing'}
