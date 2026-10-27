@@ -146,7 +146,7 @@ jobs:
             $serverFile=Join-Path $dir 'target-server.py';$portFile=Join-Path $dir 'server-port.txt'
             [IO.File]::WriteAllText($serverFile,[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('aW1wb3J0IGh0dHAuc2VydmVyCmNsYXNzIEhhbmRsZXIoaHR0cC5zZXJ2ZXIuQmFzZUhUVFBSZXF1ZXN0SGFuZGxlcik6CiAgICBkZWYgZG9fSEVBRChzZWxmKToKICAgICAgICBzZWxmLnNlbmRfcmVzcG9uc2UoNDAzIGlmIHNlbGYucGF0aD09Jy9kZW5pZWQnIGVsc2UgMjAwKQogICAgICAgIHNlbGYuZW5kX2hlYWRlcnMoKQogICAgZGVmIGxvZ19tZXNzYWdlKHNlbGYsKmFyZ3MpOnBhc3MKc2VydmVyPWh0dHAuc2VydmVyLkhUVFBTZXJ2ZXIoKCcxMjcuMC4wLjEnLDApLEhhbmRsZXIpCnByaW50KHNlcnZlci5zZXJ2ZXJfcG9ydCxmbHVzaD1UcnVlKQpzZXJ2ZXIuc2VydmVfZm9yZXZlcigpCg==')))
             $server=Start-Process python -ArgumentList @('-u',$serverFile) -RedirectStandardOutput $portFile -PassThru -WindowStyle Hidden
-            for($i=0;$i -lt 30;$i++){$portText=[string](Get-Content $portFile -Raw -ErrorAction SilentlyContinue);if($portText.Trim()){break};Start-Sleep -Milliseconds 200};if(!$portText.Trim()){throw 'Loopback test server did not start'};$port=[int]$portText.Trim()
+            for($i=0;$i -lt 30;$i++){$portText=Get-Content $portFile -Raw -ErrorAction SilentlyContinue;if(-not [string]::IsNullOrWhiteSpace($portText)){break};Start-Sleep -Milliseconds 200};if([string]::IsNullOrWhiteSpace($portText)){throw 'Loopback test server did not start'};$port=[int]$portText
             try{
               InvokeId $root 'OpenTargetSite';$target=FindWindow 'Site / Program Bağlantı Kontrolü'
               SetInput $target 'TargetSiteAddress' "http://127.0.0.1:$port/ok";InvokeId $target 'TargetSiteCheck';WaitText $target 'TargetSiteSummary' 'HTTP: 200';ClearOperationWindow
