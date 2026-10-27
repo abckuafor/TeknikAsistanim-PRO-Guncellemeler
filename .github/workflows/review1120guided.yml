@@ -27,7 +27,7 @@ jobs:
             dotnet "$env:RUNNER_TEMP/$name/$entry" | Tee-Object "$env:RUNNER_TEMP/$name-results.txt"
             if($LASTEXITCODE -ne 0){throw 'Guided service or actual WPF checks failed'}
           }
-      - name: Scan exact EXE and ZIP, verify optional usage tools in production UI
+      - name: Scan exact EXE and ZIP, verify guided tools, nominal dimensions and input guards
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -149,6 +149,8 @@ jobs:
             for($i=0;$i -lt 30;$i++){$portText=Get-Content $portFile -Raw -ErrorAction SilentlyContinue;if(-not [string]::IsNullOrWhiteSpace($portText)){break};Start-Sleep -Milliseconds 200};if([string]::IsNullOrWhiteSpace($portText)){throw 'Loopback test server did not start'};$port=[int]$portText
             try{
               InvokeId $root 'OpenTargetSite';$target=FindWindow 'Site / Program Bağlantı Kontrolü'
+              if((ById $target 'TargetSiteCheck').Current.IsEnabled){throw 'Empty target should not start a request'}
+              SetInput $target 'TargetSiteAddress' 'https://user:synthetic@example.invalid';InvokeId $target 'TargetSiteCheck';WaitText $target 'TargetSiteSummary' 'başlatılmadı';ClearOperationWindow
               SetInput $target 'TargetSiteAddress' "http://127.0.0.1:$port/ok";InvokeId $target 'TargetSiteCheck';WaitText $target 'TargetSiteSummary' 'HTTP: 200';ClearOperationWindow
               SetInput $target 'TargetSiteAddress' "http://127.0.0.1:$port/denied";InvokeId $target 'TargetSiteCheck';WaitText $target 'TargetSiteSummary' 'Sunucuya erişiliyor';WaitText $target 'TargetSiteSummary' 'HTTP: 403';ClearOperationWindow
               Screenshot $target 'target-access-denied.png';CloseWindow $target
@@ -165,6 +167,7 @@ jobs:
             Screenshot $label 'label-preview.png';CloseWindow $label
             $result.phase='local document quality UI'
             SelectNested 'ScannerToolsTab';InvokeId $root 'OpenDocumentQuality';$quality=FindWindow 'Belge Kalite Kontrolü'
+            if((ById $quality 'AnalyzeDocumentQuality').Current.IsEnabled){throw 'Image analysis should require a selected file'}
             InvokeId $quality 'ChooseQualityImage';$picker=FindWindow 'Kalitesi incelenecek tarama görüntüsü';CloseWindow $picker;Start-Sleep -Milliseconds 300
             if(!$quality.Current.IsEnabled){throw 'Image picker cancellation left owner disabled'}
             if((ProcessWindows|Where-Object {$_.Current.Name -eq 'İşlem Durumu'}).Count){throw 'Picker-only action spawned progress'}
@@ -177,7 +180,7 @@ jobs:
             Screenshot $quality 'document-quality.png';CloseWindow $quality
             InvokeId $root 'OpenDocumentQuality';$quality=FindWindow 'Belge Kalite Kontrolü';WaitText $quality 'DocumentQualitySummary' 'Sayfa boş';CloseWindow $quality
             SelectTab 'İnternet Sorunları';InvokeId $root 'OpenTargetSite';$target=FindWindow 'Site / Program Bağlantı Kontrolü';WaitText $target 'TargetSiteSummary' 'HTTP: 403';CloseWindow $target
-            $result.guidedUiChecks=@{targetHttp200=$true;target403Explained=$true;barcodeMissingCharacter=$true;barcodeExactMatch=$true;labelPreview=$true;labelBoundsValidation=$true;qualityPickerCancel=$true;pickerHasNoProgress=$true;actualImageAnalysis=$true;previewRotationDoesNotRewrite=$true;reopenPreservesState=$true;navigation=$true}
+            $result.guidedUiChecks=@{invalidTargetRejected=$true;targetHttp200=$true;target403Explained=$true;barcodeMissingCharacter=$true;barcodeExactMatch=$true;labelPreview=$true;labelBoundsValidation=$true;qualityPickerCancel=$true;pickerHasNoProgress=$true;emptyAnalysisDisabled=$true;actualImageAnalysis=$true;previewRotationDoesNotRewrite=$true;reopenPreservesState=$true;navigation=$true}
             $result.hardwareScope='Optional Evet/Hayir/X/Esc/Enter tested in actual WPF helper, pure readiness/cancel/reboot policy verified. Production EXE tested with a loopback HEAD server, typed synthetic barcode and synthetic BMP. No physical printer/scanner/barcode device installation, printing or scanning performed. No customer image or real Gemini key used.'
             $app.Refresh();$result.mainWindowEnabled=$root.Current.IsEnabled
             if(!$root.Current.IsEnabled){throw 'Main window remained disabled after dialogs'}
