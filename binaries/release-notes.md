@@ -1,3 +1,10 @@
-İnternet sayfasındaki üst bilgi alanına tıklanınca indirme/yükleme göstergeleri, Wi-Fi/kablolu bağlantı türü, ölçüm açıklamaları ve kayıt bilgisi ayrı geniş pencerede açılır. Ana sayfa sadeleştirildi. Pencereyi açıp kapatmak veya tekrar açmak yeni hız testi başlatmaz; mevcut sonuçların veri bağları korunur. Dar pencerede göstergeler alt alta gelir.
+## Donanım Test Merkezi
 
-Bu sürüm arayüz düzenlemesidir. İnternet ölçümü/onarımı, isteğe bağlı kurulum sonrası test soruları, cihaz araçları, Data/Drivers, geçmiş, AI ayarları ve güncelleme kimliği korunur.
+- Sol menüde Donanım ve Sürücüler'in altında yeni bölüm; her test için geniş, yeniden boyutlandırılabilir pencere.
+- 15/30/60 saniyelik sınırlı işlemci yükü ve uygulamaya ayrılan 16–128 MB RAM üzerinde desen karşılaştırması; onay, iptal ve okunabilen ACPI termal bölgesinde 85 °C durdurma.
+- Yeniden başlatmalı Windows Bellek Tanılama giriş noktası; otomatik yeniden başlatma yok.
+- Desteklenen Windows/ekran kartında WinSAT Direct3D denemesi ve üretici destek bağlantıları. Bu tam VRAM bit-hata taraması değildir.
+- Disk sağlık/SMART, pil ve desteklenen termal/fan kayıtları; salt okunur dosya örneği; ayrıca yedek ve onay gerektiren Windows dosya sistemi onarım konsolu. Fiziksel disk arızasını onardığı iddia edilmez.
+- Tam ekran renk/piksel gözlemi ve kullanıcı gözlem kaydı. Desteklenmeyen sensörler açıkça belirtilir.
+
+Voltaj/overclock değişmez. Kısa test sonucu tüm donanımın sağlamlığı garantisi değildir. Veri/Drivers, mevcut yedekleme ve güncelleme kimliği korunur. Yayın öncesi Windows arayüzü, iptal/onay, sentetik dosya bütünlüğü ve Defender kontrolleri uygulanır; müşteri donanımında fiziksel sertifikasyon yapılmamıştır.
