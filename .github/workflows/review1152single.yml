@@ -289,9 +289,13 @@ jobs:
             if(!$guide.Contains('32 MB') -or $guide.Contains('Pil')){throw 'RAM help is not specific to its field'};CloseWindow $numbers
             # Bounded own-process RAM check on the isolated Windows runner; no customer hardware/data.
             InvokeId $panel 'StartHardwareLoad';$confirm=FindWindow 'İşlem onayı';Click $confirm 'Devam Et'
-            Start-Sleep -Seconds 2
-            $live=TextOf $panel
-            if(!$live.Contains('Beklenen / dayanak:') -or !$live.Contains('0 hata')){throw 'Live RAM values do not show their reference'}
+            $liveReady=$false
+            for($i=0;$i -lt 160;$i++){
+              $live=TextOf $panel;$runningStatus=ById $panel 'HardwareTestStatus'
+              if($live.Contains('Beklenen / dayanak:') -and $live.Contains('0 hata') -and $runningStatus -and !$runningStatus.Current.Name.Contains('Bu kısa testte')){$liveReady=$true;break}
+              Start-Sleep -Milliseconds 250
+            }
+            if(!$liveReady){Screenshot $panel 'live-measurement-timeout.png';throw 'Live RAM values do not show their reference after bounded start wait'}
             $finished=$false
             for($i=0;$i -lt 160;$i++){$status=ById $panel 'HardwareTestStatus';if($status -and $status.Current.Name.Contains('Bu kısa testte')){$finished=$true;break};Start-Sleep -Milliseconds 250}
             if(!$finished){throw 'Bounded RAM UI test did not complete'}
