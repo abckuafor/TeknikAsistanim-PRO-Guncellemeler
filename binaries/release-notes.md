@@ -1,4 +1,6 @@
-## Açıklamalar, pencere kontrolleri ve tam metin özetler
+## Tam metin açıklamalar ve rahat pencere kullanımı
+
+- Uzun işlem durumu mesajı başlık içinde kaydırılır; alt bölüm düğmelerini ekran dışına itmez. Metin kesilmez.
 
 - Donanım Test Merkezi'nin ana düğmeleri, süre/bellek/disk alanları, destek bağlantıları ve test/onarım işlemlerine kısa Türkçe fare üstü açıklamaları ve erişilebilir yardım metni eklendi. Pasif düğmelerin açıklamaları da okunabilir.
 - Ortak açılır pencere başlığında yalnız küçült ve kapat düğmeleri var. Pencereler kenarlarından boyutlandırılabilir; küçültüldükten sonra görev çubuğundan geri açılabilir. Onay bekleyen ekranı küçültmek onay vermez.
