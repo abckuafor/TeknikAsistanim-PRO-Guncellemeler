@@ -1,8 +1,10 @@
-## Daha ince, otomatik uyum sağlayan pencere başlıkları
+## İşlem sonuçları tek özette
 
-- Uygulamanın ortak açılır pencere başlığındaki sabit 56 piksel yükseklik kaldırıldı. Başlık içerikten ölçülür; normal yazı boyutunda yaklaşık 38 piksel yüksekliğindedir, büyük yazıda gerektiği kadar büyür. Windows ekran ölçeklemesi WPF ölçülerine uygulanır.
-- Küçült ve kapat düğmeleri aynı ölçüde, ortalanmış ve fare üstü/erişilebilir açıklamalıdır. Sayfadaki büyük düğme stilleri başlık barını şişirmez.
-- Başlığın gerçek ölçüsü Windows'un taşıma alanıyla eşleştirilir; üst boyutlandırma kenarı ayrıca hesaba katılır. Taşıma alanı alttaki içerik ve düğmelerin üzerine uzanmaz.
-- Kenardan boyutlandırma, görev çubuğuna küçültme ve geri açma, onay pencerelerinin davranışı ve kullanıcı seçimleri korunur.
+- İşlem Durumu penceresindeki Madde madde özet, Kolay anlatım ve Genel durum girişleri tek “İşlem özeti” bölümünde birleştirildi. Teknik ayrıntılar ve Not ekle / kaydet ayrı, geniş pencereler olarak kalır.
+- Her kayıtlı cihaz/işlem tek kartta, sonuç rengi/simgesi, anlaşılır açıklama, sonraki adım ve varsa etiketli Gemini yorumuyla gösterilir. Önceki ve yeni kayıtların tamamı korunur; aynı adlı farklı adımlar birleştirilmez ve yorumlar başka cihaza/adıma aktarılmaz.
+- Tamamlanan, tamamlanamayan, durdurulan ve kontrol/yeniden başlatma bekleyen adım sayıları aynı ekrandadır. Sonuç üretmeyen yeni işlemler önceki sonuçlar diye açıkça işaretlenir.
+- Sonuç kartlarında bulunmayan diğer bildirimler, aynı penceredeki açılabilir alanda saatleriyle korunur. Tekrar eden aynı mesaj bir kez gösterilir. Kayıt henüz yoksa güncel bildirimler açık gösterilir.
+- Yapay zeka kullanılıp kullanılmadığı kartta belirtilir. Ortak kota/bağlantı açıklaması üstte bir kez gösterilir; teknik çıktı ve hata kodları ayrı bölümde kalır. API onayı, gönderilen veri kapsamı ve istek sınırları değişmez.
+- Uzun açıklamalar kaydırılarak tamamen okunur. Bölümler arasında geçişte yazılmış notlar korunur; özeti geçmişe kaydetme tüm görünür işlem adımlarını kapsar.
 
-Data/Drivers'ın EXE içine normal kapanışta kaydedilmesi, kurtarma çalışma kopyaları, güncelleme kimliği, mevcut kayıtlar ve ayarlar korunur. Yayımlanan EXE kişisel kayıt içermez. Windows testlerinde yalnız sentetik veri kullanılır; fiziksel cihaz veya gerçek API işlemi yapılmaz.
+Kompakt otomatik başlıklar, Data/Drivers'ın EXE içinde taşınması, mevcut kayıtlar, ayarlar ve güncelleme kimliği korunur. Testler sentetik veri/sahte HTTP ile yapılır; gerçek müşteri verisi, API anahtarı veya fiziksel cihaz işlemi kullanılmaz.
