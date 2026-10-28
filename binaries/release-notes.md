@@ -1,9 +1,10 @@
-## Format yedeklemeden vazgeçme ve güvenli kapatma
+## Tek format yedeği, şifresiz yer imleri ve açıklamalı uyarılar
 
-- Kimlik okuma, ön kontrol, onay ve kopyalama boyunca tek iptal işlemi. Hazırlıkta da Durdur kullanılabilir; iptal edilen kimlik okuması sonradan veri yazamaz veya yedeklemeyi yeniden başlatamaz.
-- Yedekleme/geri yükleme sürerken program kapatılırsa “İşlemi durdur ve kapat” onayı sunulur. Kaynaklar ve önceki yedekler korunur. İptal tamamlanınca kayıtlar EXE'ye alınır ve program kapanır; genel “işlem sürüyor, bekleyin” döngüsüne dönülmez.
-- İptalde flash belleğe yeni katalog yazımı/klasör yeniden adlandırma başlatılmaz. Yarım yedek tamamlanmış olarak listelenmez; kaynak dosyalar silinmez. Bekleyen disk isteği varsa açık durdurma mesajı gösterilir.
-- Yedekleme onayını reddetmek kopyalama başlatmaz; aynı oturumda yeniden deneme mümkündür.
-- 1.15.3 dosya/MB/süre bilgileri ve tek EXE kayıt/taşıma/güncelleme akışı korunur.
+- Yedek doğrudan seçilen yerde “Kişi adı - yyyy-MM-dd” klasörüne alınır. TeknikServisYedekleri üst klasörü, bilgisayar adı, saat veya rastgele kimlik eklenmez. Aynı gün tekrarda (2), (3) ile eski yedek korunur. Sahip kaydı yoksa Sahip belirtilmedi yazılır.
+- Ayrı Arama Motoru Yedekleme menüsü kaldırıldı. Format içindeki açılır pencerede Chrome/Edge profilleri seçilir; yer imleri aynı yedeğe otomatik eklenir. Yeni yedekleme ve geri yükleme akışlarında parola alanı yoktur.
+- Yer imi eki şifreli değildir; klasöre erişen kişi okuyabilir. Kayıtlı tarayıcı şifreleri, çerezler ve oturumlar bu eke alınmaz. Boyut, SHA256, desteklenen veri türü ve kaynak bilgisayar kimliği geri yüklemeden önce doğrulanır; bunlar şifreleme yerine geçmez.
+- Yer imleri kapalı tarayıcıdaki mevcut Windows kullanıcı profiline birleştirilir; eski dosya korunur. Başka kullanıcı klasörüne dosya yüklerken yer imi seçimi kapatılmalıdır. Dosya hedefi ve yer imi uygulama planı birlikte onaylanır.
+- Ön kontrol, yedekleme ve geri yükleme uyarıları: tam dosya/klasör, gerçek neden, durum ve önerilen adım geniş ayrı pencerede gösterilir. Erişim/kilitli dosya mesajları sade Türkçe açıklanır; dosyalar başarısızken başarılı sayılmaz. Bütün uyarılar listede ve işlem kaydındadır.
+- Eski iç içe format yedekleri yeni doğrudan tarihli yedeklerle aynı katalogda bulunur. Mevcut kayıtlar, sürücüler, iptal/kapatma, dosya/MB/süre göstergeleri ve tek EXE taşıma korunur.
 
-Sentetik verilerle iptal, gecikmeli kimlik okuması ve gerçek Windows arayüzünde onayı reddetme/yeniden başlatma/kopyalama sırasında kapatma testleri kullanılır. Müşteri verisine veya fiziksel flash belleğe işlem yapılmaz. Windows'un bir disk isteğini sonlandırması donanım/sürücüye bağlıdır; etkin I/O işlemi sırasında USB belleği çıkarmayın.
+Sentetik dosya ve tarayıcı profilleriyle test edilir; fiziksel müşteri bilgisayarı veya flash bellek kullanılmaz.
