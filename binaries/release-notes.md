@@ -1,12 +1,11 @@
-## Tek EXE ile flash bellekte taşıma
+## Yedekleme ve geri yükleme ilerlemesi
 
-- EXE'nin yanında Data/Drivers klasörleri gerekmiyor. Gerekli çalışma kopyaları Windows'un kullanıcıya özel uygulama alanında hazırlanıyor.
-- Normal kapanıştaki “Kaydedildi” mesajından sonra yalnız EXE'yi flash belleğe kopyalayıp başka bir Windows 10/11 x64 bilgisayarda açabilirsiniz. Kayıtlar ve sürücü dosyaları EXE'nin içindedir. Doğrudan TeknikServis_PRO.exe indirilebilir; ZIP gerekli değildir.
-- Eski sürümün uygun yerel kayıtları otomatik kopyalanarak alınır; asılları silinmez. EXE'nin yanındaki farklı/eski çalışma klasörleri yeni EXE'nin açılmasını engellemez veya kayıtlarını değiştirmez.
-- Aynı konumdaki zorla kapatılmış oturumun kurtarma kopyası korunur. Daha yeni/farklı bir veri paketiyle çakışan eski kopya silinmeden ayrı tutulur.
-- Açılış ekranı küçük ve büyük yazılı bir pencereyle sadeleştirildi. Arka plan EXE hazırlığı ana ekran açılır açılmaz başlar; kapanışta takılan başlangıç güncelleme sorgusu iptal edilir, ağ zaman aşımı beklenmez.
-- Kapanış kaydı ve otomatik güncelleme, EXE hedefinden ayrı çalışma konumunu doğrulayarak kayıtları yeni EXE'ye taşır. Yardımcı kimlik doğrulaması, dosya bütünlüğü ve tek oturum kilitleri korunur.
+- Format ve arama motoru yedeği alma/geri yükleme: toplam ve doğrulanmış dosya sayısı, toplam içerik boyutu, doğrulanmış MB ve devam eden dosyadaki MB ayrı gösterilir. Bilgiler geniş İşlem Durumu penceresinde okunur.
+- Yeterli doğrulanmış aktarım ölçümü varsa tahmini kalan süre gösterilir. Hazırlıkta Hesaplanıyor, son dosyada Doğrulanıyor denir; durma/iptal/hata sonrası eski süre gösterilmez. Süre disk hızına göre değişir.
+- Eski dosya-sonu sayacı büyük bir dosya boyunca sabit kalabiliyordu. Artık kopyalama sırasında yaklaşık 150 ms arayla MB ilerlemesi güncellenir. On saniye yeni ilerleme bilgisi yoksa bekleme açıklanır; bu tek başına disk arızası teşhisi değildir.
+- Asenkron dosya okuma/yazma ve doğrulama okumalarında kullanıcı iptali ve istek başına 45 saniyelik zaman aşımı. Depolama zaman aşımında sonraki dosyalar başlatılmaz, yarım dosya doğrulanmış sayılmaz. Windows sürücüsünün yanıtı ve son disk flush işlemi fiziksel aygıta bağlıdır.
+- FAT32 tek-dosya sınırını aşan dosya açıkça raporlanır; otomatik biçimlendirme yapılmaz. NTFS için bu sınır teşhisi kullanılmaz.
+- Tarayıcı sayıları şifreli paketin içindeki veri dosyaları/içerik boyutudur; diskteki şifreli paket boyutuyla karıştırılmaz. Yeni yedeklerde yalnız yer imleri/favoriler alınır; parola/oturum toplama eklenmedi.
+- Kaynaklar, mevcut dosyalar, önceki yedekler, Data/Drivers ve tek EXE taşıma/güncelleme kimliği korunur.
 
-Program açıkken kayıtlar yerel kurtarma alanına yazılır; EXE'nin son yerleştirmesi normal kapanışta tamamlanır. Zorla kapanış/elektrik kesintisi sonrası EXE'yi aynı yerden açıp normal kapatın. Windows hesabına bağlı API anahtarları farklı bilgisayarda yeniden istenebilir. EXE'nin kaydedileceği yerde yazma izni ve yeterli boş alan gerekir. Kişisel kayıt içeren EXE herkese açık paylaşılmamalıdır.
-
-Testler yalnız sentetik kayıt ve sürücüler, sahte HTTP ve ayrılmış sınırlı RAM örneği kullanır; müşteri verisine veya fiziksel cihazlara işlem uygulanmaz.
+Testler sentetik dosyalar, gecikmeli/iptal edilen akışlar, sahte HTTP ve Windows arayüzü kullanır. Müşteri bilgisayarında veya fiziksel flash bellekte test yapılmamıştır.
