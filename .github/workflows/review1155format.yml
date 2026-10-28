@@ -423,7 +423,7 @@ jobs:
             $carryWriteUtc=[DateTime]::UtcNow
             $carryReady=$null
             $carryCacheRoots=@((Join-Path $carryWork 'Data/Updates/Pending'),(Join-Path $env:ProgramFiles 'TeknikServisPRO_UpdateStaging'),(Join-Path $env:LOCALAPPDATA 'TeknikServisPRO_BundleStaging'))
-            for($i=0;$i -lt 160;$i++){foreach($cacheRoot in $carryCacheRoots){if(Test-Path $cacheRoot){foreach($entry in (Get-ChildItem $cacheRoot -Directory -ErrorAction SilentlyContinue)){$marker=Join-Path $entry.FullName 'checkpoint-ready.json';if(Test-Path $marker){$m=Get-Content $marker|ConvertFrom-Json;if([DateTime]$m.PreparedUtc -ge $carryWriteUtc -and [int]$m.Generation -eq ([int]$meta.Generation+1)){$carryReady=$marker}}}}};if($carryReady){break};Start-Sleep -Milliseconds 250}
+            for($i=0;$i -lt 160;$i++){foreach($cacheRoot in $carryCacheRoots){if(Test-Path $cacheRoot){foreach($entry in (Get-ChildItem $cacheRoot -Directory -ErrorAction SilentlyContinue)){$marker=Join-Path $entry.FullName 'checkpoint-ready.json';if(Test-Path $marker){$m=Get-Content $marker|ConvertFrom-Json;if([DateTime]$m.PreparedUtc -ge $carryWriteUtc -and [int]$m.Generation -ge ([int]$meta.Generation+1)){$carryReady=$marker}}}}};if($carryReady){break};Start-Sleep -Milliseconds 250}
             if(!$carryReady){throw 'Same-volume carry snapshot was not ready'}
             if([IO.Path]::GetPathRoot($carryReady) -ne [IO.Path]::GetPathRoot($carry)){throw 'Same-volume fast commit path was not exercised'}
             $carryWatch=[Diagnostics.Stopwatch]::StartNew();CloseWindow $root
