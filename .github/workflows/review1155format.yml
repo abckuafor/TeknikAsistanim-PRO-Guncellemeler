@@ -75,7 +75,7 @@ jobs:
           Expand-Archive verification/format-checks.zip "$env:RUNNER_TEMP/format-checks"
           dotnet "$env:RUNNER_TEMP/format-checks/FormatBackup1100.Checks.dll" | Tee-Object "$env:RUNNER_TEMP/format-checks-results.txt"
           if($LASTEXITCODE -ne 0){throw 'Transfer tests failed'}
-      - name: browser-checks
+      - name: browser-checks (restore fixture outside AppData)
         shell: pwsh
         run: |
           $ErrorActionPreference='Stop'
