@@ -95,8 +95,13 @@ jobs:
           $app=$null
           try {
             if ((Get-Service WinDefend).Status -ne 'Running') { Start-Service WinDefend -ErrorAction Stop }
-            for($scanPrep=0;$scanPrep -lt 3;$scanPrep++){try{Update-MpSignature -ErrorAction Stop;break}catch{if($scanPrep -eq 2){throw};Start-Sleep -Seconds 3}}
             $status=Get-MpComputerStatus
+            $result.signatureRefresh='already-current'
+            if(!$status.AMServiceEnabled -or $status.AntivirusSignatureLastUpdated -lt (Get-Date).AddDays(-3)){
+              $result.signatureRefresh='requested-from-Microsoft'
+              for($scanPrep=0;$scanPrep -lt 3;$scanPrep++){try{Update-MpSignature -UpdateSource MMPC -ErrorAction Stop;break}catch{if($scanPrep -eq 2){throw};Start-Sleep -Seconds 3}}
+              $status=Get-MpComputerStatus
+            }
             $result.defenderVersion=$status.AMProductVersion
             $result.signatureVersion=$status.AntivirusSignatureVersion
             $result.signatureUpdatedUtc=$status.AntivirusSignatureLastUpdated.ToUniversalTime().ToString('o')
