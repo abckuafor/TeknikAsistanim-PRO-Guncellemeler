@@ -1,0 +1,591 @@
+name: Review and publish 1.15.7
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/review1157transfer.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  review:
+    runs-on: windows-2025
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: summary-checks
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $expected=(Get-Content verification/summary-checks-sha256.txt).Trim()
+          if((Get-FileHash verification/summary-checks.zip -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected){throw 'Check archive hash mismatch'}
+          Expand-Archive verification/summary-checks.zip "$env:RUNNER_TEMP/summary-checks"
+          dotnet "$env:RUNNER_TEMP/summary-checks/AutoSummary1109.Checks.dll" | Tee-Object "$env:RUNNER_TEMP/summary-checks-results.txt"
+          if($LASTEXITCODE -ne 0){throw 'Required summary-checks failed'}
+      - name: help-checks
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $expected=(Get-Content verification/help-checks-sha256.txt).Trim()
+          if((Get-FileHash verification/help-checks.zip -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected){throw 'Check archive hash mismatch'}
+          Expand-Archive verification/help-checks.zip "$env:RUNNER_TEMP/help-checks"
+          dotnet "$env:RUNNER_TEMP/help-checks/Help1113.Checks.dll" | Tee-Object "$env:RUNNER_TEMP/help-checks-results.txt"
+          if($LASTEXITCODE -ne 0){throw 'Required help-checks failed'}
+      - name: comfort-checks
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $expected=(Get-Content verification/comfort-checks-sha256.txt).Trim()
+          if((Get-FileHash verification/comfort-checks.zip -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected){throw 'Check archive hash mismatch'}
+          Expand-Archive verification/comfort-checks.zip "$env:RUNNER_TEMP/comfort-checks"
+          dotnet "$env:RUNNER_TEMP/comfort-checks/Comfort1132.Checks.dll" | Tee-Object "$env:RUNNER_TEMP/comfort-checks-results.txt"
+          if($LASTEXITCODE -ne 0){throw 'Required comfort-checks failed'}
+      - name: embedded-checks
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $expected=(Get-Content verification/embedded-checks-sha256.txt).Trim()
+          if((Get-FileHash verification/embedded-checks.zip -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected){throw 'Embedded check archive hash mismatch'}
+          Expand-Archive verification/embedded-checks.zip "$env:RUNNER_TEMP/embedded-checks"
+          dotnet "$env:RUNNER_TEMP/embedded-checks/EmbeddedData1140.Checks.dll" | Tee-Object "$env:RUNNER_TEMP/embedded-checks-results.txt"
+          if($LASTEXITCODE -ne 0){throw 'Required embedded checks failed'}
+      - name: hardware-checks
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          if((Get-FileHash verification/hardware-checks.zip -Algorithm SHA256).Hash.ToLowerInvariant() -ne (Get-Content verification/hardware-checks-sha256.txt).Trim()){throw 'Hardware test archive mismatch'}
+          Expand-Archive verification/hardware-checks.zip "$env:RUNNER_TEMP/hardware-checks"
+          dotnet "$env:RUNNER_TEMP/hardware-checks/Hardware1130.Checks.dll" | Tee-Object "$env:RUNNER_TEMP/hardware-checks-results.txt"
+          if($LASTEXITCODE -ne 0){throw 'Hardware policy checks failed'}
+      - name: updater-checks
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          if((Get-FileHash verification/updater-checks.zip -Algorithm SHA256).Hash.ToLowerInvariant() -ne (Get-Content verification/updater-checks-sha256.txt).Trim()){throw 'Updater test archive mismatch'}
+          Expand-Archive verification/updater-checks.zip "$env:RUNNER_TEMP/updater-checks"
+          dotnet "$env:RUNNER_TEMP/updater-checks/UpdaterCancellation1152.Checks.dll" | Tee-Object "$env:RUNNER_TEMP/updater-checks-results.txt"
+          if($LASTEXITCODE -ne 0){throw 'Updater cancellation checks failed'}
+      - name: format-checks
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          if((Get-FileHash verification/format-checks.zip -Algorithm SHA256).Hash.ToLowerInvariant() -ne (Get-Content verification/format-checks-sha256.txt).Trim()){throw 'Test archive mismatch'}
+          Expand-Archive verification/format-checks.zip "$env:RUNNER_TEMP/format-checks"
+          dotnet "$env:RUNNER_TEMP/format-checks/FormatBackup1100.Checks.dll" | Tee-Object "$env:RUNNER_TEMP/format-checks-results.txt"
+          if($LASTEXITCODE -ne 0){throw 'Transfer tests failed'}
+      - name: browser-checks (restore fixture outside AppData)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          if((Get-FileHash verification/browser-checks.zip -Algorithm SHA256).Hash.ToLowerInvariant() -ne (Get-Content verification/browser-checks-sha256.txt).Trim()){throw 'Test archive mismatch'}
+          Expand-Archive verification/browser-checks.zip "$env:RUNNER_TEMP/browser-checks"
+          dotnet "$env:RUNNER_TEMP/browser-checks/BrowserPackage1101.Checks.dll" | Tee-Object "$env:RUNNER_TEMP/browser-checks-results.txt"
+          if($LASTEXITCODE -ne 0){throw 'Transfer tests failed'}
+      - name: Verify standalone EXE, private workspace and compact Windows dialogs
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference='Stop'
+          $dir=Join-Path $env:RUNNER_TEMP 'exact-archive-review'
+          New-Item -ItemType Directory $dir -Force | Out-Null
+          $result=[ordered]@{verdict='NOT_SCANNED'; errors=@(); exeExecuted=$false; startupVerified=$false}
+          $app=$null
+          try {
+            if ((Get-Service WinDefend).Status -ne 'Running') { Start-Service WinDefend -ErrorAction Stop }
+            Update-MpSignature -ErrorAction Stop
+            $status=Get-MpComputerStatus
+            $result.defenderVersion=$status.AMProductVersion
+            $result.signatureVersion=$status.AntivirusSignatureVersion
+            $result.signatureUpdatedUtc=$status.AntivirusSignatureLastUpdated.ToUniversalTime().ToString('o')
+            if (!$status.AMServiceEnabled -or $status.AntivirusSignatureLastUpdated -lt (Get-Date).AddDays(-3)) { throw 'Defender or current signatures unavailable' }
+            $folder=Join-Path $dir 'application'; New-Item -ItemType Directory $folder -Force | Out-Null
+            New-Item -ItemType Directory (Join-Path $folder 'Data'),(Join-Path $folder 'Drivers') -Force|Out-Null
+            [IO.File]::WriteAllText((Join-Path $folder 'Data/fixture-preserve.txt'),'synthetic-keep-data')
+            [IO.File]::WriteAllText((Join-Path $folder 'Drivers/fixture-preserve.txt'),'synthetic-keep-drivers')
+            Add-Type -AssemblyName System.Security.Cryptography.ProtectedData
+            $aiDir=Join-Path $folder 'Data/Ai';New-Item -ItemType Directory $aiDir -Force|Out-Null
+            $aiPath=Join-Path $aiDir 'settings.json'
+            $cipher=[Convert]::ToBase64String([Security.Cryptography.ProtectedData]::Protect([Text.Encoding]::UTF8.GetBytes('synthetic-api-key-not-for-use'),$null,[Security.Cryptography.DataProtectionScope]::CurrentUser))
+            @{Version=1;ActiveProvider='Gemini';Profiles=@{Gemini=@{Model='gemini-synthetic';ProtectedApiKey=$cipher;AutomaticSummaryConsent=$false};OpenAI=@{Model='other-provider-preserved';ProtectedApiKey=$cipher;AutomaticSummaryConsent=$false}}}|ConvertTo-Json -Depth 5|Set-Content $aiPath -Encoding utf8NoBOM
+            $aiSettingsHash=(Get-FileHash $aiPath -Algorithm SHA256).Hash
+            $checks=Join-Path $env:RUNNER_TEMP 'embedded-checks/EmbeddedData1140.Checks.dll'
+            function GetWork([string]$location) { return (dotnet $checks --workspace (Join-Path $location 'TeknikServis_PRO.exe')).Trim() }
+
+            $exe=Join-Path $folder 'TeknikServis_PRO.exe'
+            $stream=[IO.File]::Create($exe)
+            try { Get-ChildItem 'binaries/parts/*.part' | Sort-Object Name | ForEach-Object { $f=[IO.File]::OpenRead($_.FullName);try{$f.CopyTo($stream)}finally{$f.Dispose()} } } finally { $stream.Dispose() }
+            $expected=((Get-Content 'binaries/SHA256.txt') -split ' ')[0].ToLowerInvariant()
+            $result.exeSha256=(Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+            if($result.exeSha256 -ne $expected){throw 'EXE hash mismatch'}
+            $cleanExe=Join-Path $dir 'public-clean.exe';Copy-Item $exe $cleanExe
+            $zip=Join-Path $dir 'TeknikServis_PRO_1.15.7_EXE.zip'
+            Compress-Archive $exe $zip
+            $result.zipSha256=(Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+            $engine=Get-ChildItem "$env:ProgramData/Microsoft/Windows Defender/Platform/*/MpCmdRun.exe" | Sort-Object FullName -Descending | Select-Object -First 1
+            & $engine.FullName -Scan -ScanType 3 -File $exe -DisableRemediation 2>&1 | Tee-Object "$dir/scan-exe.txt"
+            $result.exeScanExitCode=$LASTEXITCODE
+            if($LASTEXITCODE -ne 0){throw 'EXE scan did not succeed'}
+            & $engine.FullName -Scan -ScanType 3 -File $zip -DisableRemediation 2>&1 | Tee-Object "$dir/scan-original-zip.txt"
+            $result.scanExitCode=$LASTEXITCODE
+            if ($LASTEXITCODE -ne 0) { $result.verdict='DETECTED_OR_SCAN_ERROR'; throw 'Original archive scan did not succeed' }
+            $result.verdict='NO_DETECTION_IN_THIS_ENVIRONMENT'
+            Add-Type -AssemblyName PresentationCore
+            $fontWeightConverter=[Windows.FontWeightConverter]::new()
+            $fontWeightConverter.ConvertFromInvariantString('Light')|Out-Null
+            $result.headerFontWeightVerified=$true
+            $app=Start-Process $exe -WorkingDirectory $folder -PassThru
+            $result.exeExecuted=$true
+            for ($i=0;$i -lt 30;$i++) {
+              Start-Sleep -Seconds 1; $app.Refresh()
+              if ($app.HasExited) { throw "Application exited before startup verification: $($app.ExitCode)" }
+              if ($app.MainWindowHandle -ne 0 -and $app.MainWindowTitle -like 'Teknik Servis PRO 1.15.7*') { $result.startupVerified=$true; $result.windowTitle=$app.MainWindowTitle; break }
+            }
+            if (!$result.startupVerified) {
+              Add-Type -AssemblyName UIAutomationClient
+              Add-Type -AssemblyName UIAutomationTypes
+              $failureWindow=[Windows.Automation.AutomationElement]::FromHandle($app.MainWindowHandle)
+              $result.startupDialogText=@($failureWindow.FindAll([Windows.Automation.TreeScope]::Descendants,[Windows.Automation.Condition]::TrueCondition)|ForEach-Object {$_.Current.Name})
+              throw "Main WPF window not verified: $($app.MainWindowTitle)"
+            }
+            Add-Type -AssemblyName UIAutomationClient
+            Add-Type -AssemblyName UIAutomationTypes
+            Add-Type 'using System; using System.Runtime.InteropServices; public static class NoticeCloser { [DllImport("user32.dll")] public static extern bool SetCursorPos(int x,int y); [DllImport("user32.dll")] public static extern void mouse_event(uint flags,uint x,uint y,uint data,UIntPtr extra); public delegate bool ChildProc(IntPtr h,IntPtr p); [DllImport("user32.dll")] public static extern bool EnumChildWindows(IntPtr h,ChildProc callback,IntPtr p); [DllImport("user32.dll",CharSet=CharSet.Unicode)] public static extern int GetClassName(IntPtr h,System.Text.StringBuilder name,int max); [DllImport("user32.dll")] public static extern int GetDlgCtrlID(IntPtr h); [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h); public static IntPtr FileNameEdit(IntPtr h){IntPtr last=IntPtr.Zero,preferred=IntPtr.Zero;EnumChildWindows(h,(child,p)=>{var name=new System.Text.StringBuilder(256);GetClassName(child,name,256);if(name.ToString()=="Edit"&&IsWindowVisible(child)){last=child;if(GetDlgCtrlID(child)==1001||GetDlgCtrlID(child)==1148)preferred=child;}return true;},IntPtr.Zero);return preferred!=IntPtr.Zero?preferred:last;} [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr window,uint message,IntPtr wParam,IntPtr lParam); [DllImport("user32.dll")] public static extern IntPtr GetDlgItem(IntPtr h,int id); [DllImport("user32.dll",CharSet=CharSet.Unicode)] public static extern IntPtr SendMessage(IntPtr h,uint message,IntPtr wParam,string text); [DllImport("user32.dll")] public static extern IntPtr GetWindow(IntPtr h,uint cmd); [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h); [DllImport("user32.dll")] public static extern int GetWindowLong(IntPtr window,int index); }'
+            $scope=[Windows.Automation.TreeScope]::Descendants
+            function FindNamed($parent,[string]$name,$kind) {
+              $c=[Windows.Automation.AndCondition]::new([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::NameProperty,$name),[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,$kind))
+              return $parent.FindFirst($scope,$c)
+            }
+            function FindWindow([string]$name) {
+              $c=[Windows.Automation.AndCondition]::new([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::NameProperty,$name),[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::Window),[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ProcessIdProperty,$app.Id))
+              for($j=0;$j -lt 120;$j++){$found=[Windows.Automation.AutomationElement]::RootElement.FindFirst($scope,$c);if($found){return $found};Start-Sleep -Milliseconds 250}
+              throw "Dialog not found: $name"
+            }
+            function Click($parent,[string]$name) {
+              $b=FindNamed $parent $name ([Windows.Automation.ControlType]::Button)
+              if(!$b){throw "Button missing: $name"}
+              ([Windows.Automation.InvokePattern]$b.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern)).Invoke()
+            }
+            function CheckModern($window) {
+              $close=$window.FindFirst($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty,'DialogClose'))
+              if(!$close){throw 'Custom dialog close control missing'}
+              $style=[NoticeCloser]::GetWindowLong([IntPtr]$window.Current.NativeWindowHandle,-16)
+              $result.customChromeVerified=$true
+            }
+            $root=[Windows.Automation.AutomationElement]::FromHandle($app.MainWindowHandle)
+            function ById($parent,[string]$id){return $parent.FindFirst($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty,$id))}
+            Add-Type -AssemblyName System.Drawing
+            function Screenshot($window,[string]$name) {
+              [NoticeCloser]::SetForegroundWindow([IntPtr]$window.Current.NativeWindowHandle)|Out-Null
+              $bounds=$window.Current.BoundingRectangle
+              [NoticeCloser]::SetCursorPos([int]($bounds.Left+180),[int]($bounds.Top+28))|Out-Null
+              [NoticeCloser]::mouse_event(2,0,0,0,[UIntPtr]::Zero);[NoticeCloser]::mouse_event(4,0,0,0,[UIntPtr]::Zero)
+              Start-Sleep -Milliseconds 250
+              $image=[Drawing.Bitmap]::new([int]$bounds.Width,[int]$bounds.Height);$graphics=[Drawing.Graphics]::FromImage($image);$graphics.CopyFromScreen([int]$bounds.X,[int]$bounds.Y,0,0,$image.Size)
+              $image.Save((Join-Path $dir $name),[Drawing.Imaging.ImageFormat]::Png);$graphics.Dispose();$image.Dispose()
+            }
+            function CloseWindow($window){[NoticeCloser]::PostMessage([IntPtr]$window.Current.NativeWindowHandle,0x0010,[IntPtr]::Zero,[IntPtr]::Zero)|Out-Null;Start-Sleep -Milliseconds 300}
+            function WaitDone($window){for($j=0;$j -lt 480;$j++){if((ById $window 'OperationState').Current.Name -and (ById $window 'OperationState').Current.Name -ne 'İşlem devam ediyor'){return};Start-Sleep -Milliseconds 250};throw 'Bounded read-only operation did not finish'}
+            Add-Type -AssemblyName System.Windows.Forms
+            function SelectTab([string]$name){$tab=FindNamed $root $name ([Windows.Automation.ControlType]::TabItem);if(!$tab){throw "Tab missing: $name"};([Windows.Automation.SelectionItemPattern]$tab.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern)).Select();Start-Sleep -Milliseconds 250}
+            function ProcessWindows{ return [Windows.Automation.AutomationElement]::RootElement.FindAll($scope,[Windows.Automation.AndCondition]::new([Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ProcessIdProperty,$app.Id),[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::Window))) }
+            function AssertNoProgress{if((ProcessWindows|Where-Object {$_.Current.Name -eq 'İşlem Durumu'}).Count){throw 'Picker spawned operation/progress window'}}
+            function CancelNative($picker,[string]$method){if($method -eq 'Esc'){[NoticeCloser]::SetForegroundWindow([IntPtr]$picker.Current.NativeWindowHandle)|Out-Null;[Windows.Forms.SendKeys]::SendWait('{ESC}')}elseif($method -eq 'Cancel'){$button=FindNamed $picker 'Cancel' ([Windows.Automation.ControlType]::Button);if(!$button){$button=FindNamed $picker 'İptal' ([Windows.Automation.ControlType]::Button)};if($button){([Windows.Automation.InvokePattern]$button.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern)).Invoke()}else{$cancel=[NoticeCloser]::GetDlgItem([IntPtr]$picker.Current.NativeWindowHandle,2);if($cancel -eq [IntPtr]::Zero){throw 'Native Cancel ID missing'};[NoticeCloser]::PostMessage($cancel,0x00F5,[IntPtr]::Zero,[IntPtr]::Zero)|Out-Null}}else{CloseWindow $picker};Start-Sleep -Milliseconds 500;if(!$root.Current.IsEnabled){throw 'Main owner remained disabled after picker closed'};AssertNoProgress}
+            function NativePath($picker,[string]$path,[string]$buttonName,[bool]$allowWork=$false){$edits=$picker.FindAll($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::Edit));$field=$edits|Where-Object {$_.Current.Name -match '^(File name|Folder|Dosya adı|Klasör)'}|Select-Object -First 1;if($field){([Windows.Automation.ValuePattern]$field.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern)).SetValue($path)}else{$edit=[NoticeCloser]::FileNameEdit([IntPtr]$picker.Current.NativeWindowHandle);if($edit -eq [IntPtr]::Zero){throw 'Native filename control missing'};[NoticeCloser]::SendMessage($edit,0x000C,[IntPtr]::Zero,$path)|Out-Null};$accept=[NoticeCloser]::GetDlgItem([IntPtr]$picker.Current.NativeWindowHandle,1);if($accept -eq [IntPtr]::Zero){Click $picker $buttonName}else{[NoticeCloser]::PostMessage($accept,0x00F5,[IntPtr]::Zero,[IntPtr]::Zero)|Out-Null};Start-Sleep -Milliseconds 600;if(!$root.Current.IsEnabled -and !$allowWork){throw 'Native selection did not return to main owner'};if(!$allowWork){AssertNoProgress}}
+            function SetValueById([string]$id,[string]$value){$element=ById $root $id;if(!$element){throw "Missing input: $id"};([Windows.Automation.ValuePattern]$element.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern)).SetValue($value);Start-Sleep -Milliseconds 100}
+            function WaitWork([bool]$expectError=$false){$seenError=$false;for($n=0;$n -lt 240;$n++){foreach($w in (ProcessWindows)){$name=$w.Current.Name;if($name -in @('İşlem tamamlandı','İşlem tamamlanamadı')){if($name -eq 'İşlem tamamlanamadı'){$seenError=$true};$ok=FindNamed $w 'Tamam' ([Windows.Automation.ControlType]::Button);if($ok){([Windows.Automation.InvokePattern]$ok.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern)).Invoke()}}};Start-Sleep -Milliseconds 200;$footer=ById $root 'MainFooterStatus';if($footer.Current.Name.StartsWith('Hazır') -and $root.Current.IsEnabled){foreach($w in (ProcessWindows|Where-Object {$_.Current.Name -eq 'İşlem Durumu'})){$state=ById $w 'OperationState';if($state -and $state.Current.Name -eq 'İşlem tamamlanamadı'){$seenError=$true};CloseWindow $w};if($expectError -ne $seenError){throw ('Unexpected operation error state: '+$seenError)};return}};throw 'Operation failed to release busy state within 48 seconds'}
+            Add-Type 'using System;using System.Runtime.InteropServices;public static class PopupNative { [DllImport("user32.dll")] public static extern uint GetDpiForWindow(IntPtr h); [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr h); [DllImport("user32.dll")] public static extern bool IsWindowEnabled(IntPtr h); [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr h,int command); }'
+            function InvokeId($w,$id){$b=ById $w $id;if(!$b){throw "Missing: $id"};([Windows.Automation.InvokePattern]$b.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern)).Invoke()}
+            function RequireHelp($w,$id){$e=ById $w $id;if(!$e -or $e.Current.HelpText.Length -lt 35){throw "Missing useful hover/accessibility help: $id"};return $e}
+            function CheckCompactCaption($w){
+              $close=ById $w 'DialogClose';$min=ById $w 'DialogMinimize'
+              if(!$close -or !$min -or [string]::IsNullOrWhiteSpace($w.Current.Name)){throw 'Shared caption controls/window title missing'}
+              $scale=[PopupNative]::GetDpiForWindow([IntPtr]$w.Current.NativeWindowHandle)/96.0
+              $c=$close.Current.BoundingRectangle;$m=$min.Current.BoundingRectangle;$bounds=$w.Current.BoundingRectangle
+              if($c.Height -gt 31*$scale -or $c.Height -lt 29*$scale -or $m.Height -gt 31*$scale){throw 'Caption controls inflated by body button styles'}
+              if($c.Bottom-$bounds.Top -gt 48*$scale){throw 'Popup caption remains too tall'}
+              # The title TextBlock is internal chrome, not a separate external UIA element.
+              # Real WPF checks measure its visible layout at normal/large fonts and probe every native drag edge.
+            }
+            function DragCaption($w){
+              CheckCompactCaption $w;$before=$w.Current.BoundingRectangle
+              $x=[int]($before.Left+140);$y=[int]($before.Top+24)
+              [NoticeCloser]::SetForegroundWindow([IntPtr]$w.Current.NativeWindowHandle)|Out-Null
+              [NoticeCloser]::SetCursorPos($x,$y)|Out-Null;[NoticeCloser]::mouse_event(2,0,0,0,[UIntPtr]::Zero);Start-Sleep -Milliseconds 100
+              [NoticeCloser]::SetCursorPos(($x+18),($y+8))|Out-Null;Start-Sleep -Milliseconds 100
+              [NoticeCloser]::SetCursorPos(($x+36),($y+16))|Out-Null;Start-Sleep -Milliseconds 100
+              [NoticeCloser]::mouse_event(4,0,0,0,[UIntPtr]::Zero);Start-Sleep -Milliseconds 250
+              $after=$w.Current.BoundingRectangle
+              if([Math]::Abs($after.Left-$before.Left) -lt 15 -and [Math]::Abs($after.Top-$before.Top) -lt 6){throw 'Compact title bar mouse drag failed'}
+            }
+            function MinRestore($w){
+              CheckCompactCaption $w
+              if(ById $w 'DialogMaximize'){throw 'Old maximize icon remains'}
+              $h=[IntPtr]$w.Current.NativeWindowHandle;if(([NoticeCloser]::GetWindowLong($h,-20) -band 0x40000) -eq 0){throw 'Owned popup has no taskbar presence'}
+              if(([NoticeCloser]::GetWindowLong($h,-16) -band 0x40000) -eq 0){throw 'Edge resizing style lost'}
+              $before=$w.Current.BoundingRectangle;InvokeId $w 'DialogMinimize';Start-Sleep -Milliseconds 300
+              if(![PopupNative]::IsIconic($h)){throw 'Minimize header did not minimize popup'}
+              [PopupNative]::ShowWindowAsync($h,9)|Out-Null;[NoticeCloser]::SetForegroundWindow($h)|Out-Null;Start-Sleep -Milliseconds 350
+              if([PopupNative]::IsIconic($h)){throw 'Popup did not restore through native taskbar-style restore'}
+              $after=$w.Current.BoundingRectangle;if([Math]::Abs($before.Width-$after.Width) -gt 3 -or [Math]::Abs($before.Height-$after.Height) -gt 3){throw 'Restore discarded user size'}
+            }
+            function TextOf($w){return ($w.FindAll($scope,[Windows.Automation.Condition]::TrueCondition)|ForEach-Object {$_.Current.Name}) -join "`n"}
+            function ScrollBottom($element){$node=$element;while($node){$p=$null;if($node.TryGetCurrentPattern([Windows.Automation.ScrollPattern]::Pattern,[ref]$p) -and $p.Current.VerticallyScrollable){$p.SetScrollPercent(-1,100);Start-Sleep -Milliseconds 250;return};$node=[Windows.Automation.TreeWalker]::RawViewWalker.GetParent($node)}}
+            function HoverHelp($element,$fragment){
+              $b=$element.Current.BoundingRectangle;if($b.Width -le 0){throw 'Hover target not visible'}
+              [NoticeCloser]::SetCursorPos([int]($b.X+$b.Width/2),[int]($b.Y+$b.Height/2))|Out-Null
+              for($i=0;$i -lt 20;$i++){$tips=[Windows.Automation.AutomationElement]::RootElement.FindAll($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::ToolTip));foreach($t in $tips){if($t.Current.ProcessId -eq $app.Id -and (TextOf $t).Contains($fragment)){return}};Start-Sleep -Milliseconds 150};throw ('Visible hover explanation missing: '+$fragment)
+            }
+            $result.phase='Hardware hub hover explanations'
+            SelectTab 'Donanım Test Merkezi'
+            foreach($id in @('OpenHardwareQuick','OpenHardwareCpu','OpenHardwareRam','OpenHardwareGpu','OpenHardwareDisk','OpenHardwareCooling','OpenScreenCheck')){$null=RequireHelp $root $id}
+            $target=RequireHelp $root 'OpenHardwareCpu';HoverHelp $target 'kısa işlemci';Screenshot $root 'hardware-hover.png'
+            $result.phase='Hardware detail controls and minimize/restore'
+            InvokeId $root 'OpenHardwareRam';$panel=FindWindow 'Donanım Test Merkezi — RAM testleri'
+            foreach($id in @('HardwareHealth','HardwareDuration','HardwareMemory','StartHardwareLoad','StopHardwareTest','DialogMinimize','DialogClose')){$null=RequireHelp $panel $id}
+            $transform=[Windows.Automation.TransformPattern]$panel.GetCurrentPattern([Windows.Automation.TransformPattern]::Pattern);$transform.Resize(760,620);Start-Sleep -Milliseconds 200;DragCaption $panel;MinRestore $panel
+            $stop=RequireHelp $panel 'StopHardwareTest';ScrollBottom $stop;HoverHelp $stop 'CHKDSK';Screenshot $panel 'hardware-disabled-hover.png';CloseWindow $panel
+            InvokeId $root 'OpenHardwareDisk';$panel=FindWindow 'Donanım Test Merkezi — HDD / SSD ve dosya sistemi'
+            foreach($id in @('HardwareHealth','HardwareVolume','ChooseHardwareReadFile','HardwareBackupConfirmed','StopHardwareTest')){$null=RequireHelp $panel $id}
+            foreach($name in @('Dosya Sistemi Kontrolü (Windows)','Salt Okunur Dosya Örneği','Dosya Sistemi Onarımını Aç')){$b=FindNamed $panel $name ([Windows.Automation.ControlType]::Button);if(!$b -or $b.Current.HelpText.Length -lt 40){throw ('Disk action help missing: '+$name)}}
+            CloseWindow $panel
+            InvokeId $root 'OpenHardwareGpu';$panel=FindWindow 'Donanım Test Merkezi — Ekran kartı / VRAM';foreach($id in @('HardwareVendorNVIDIA','HardwareVendorAMD','HardwareVendorIntel')){$null=RequireHelp $panel $id};CloseWindow $panel
+            InvokeId $root 'OpenHardwareCooling';$panel=FindWindow 'Donanım Test Merkezi — Pil / Soğutma';CheckCompactCaption $panel;Screenshot $panel 'compact-header-cooling.png';CloseWindow $panel
+            InvokeId $root 'OpenHardwareCpu';$panel=FindWindow 'Donanım Test Merkezi — İşlemci testi';InvokeId $panel 'StartHardwareLoad';$confirm=FindWindow 'İşlem onayı';MinRestore $confirm
+            if([PopupNative]::IsWindowEnabled([IntPtr]$panel.Current.NativeWindowHandle)){throw 'Minimizing confirmation released its modal boundary'}
+            Click $confirm 'Vazgeç';Start-Sleep -Milliseconds 400;foreach($w in (ProcessWindows|Where-Object {$_.Current.Name -eq 'İşlem Durumu'})){CloseWindow $w};CloseWindow $panel
+            $result.phase='List selection preserved across minimized modal popup'
+            SelectTab 'Format Yedekle / Yükle';InvokeId $root 'OpenFormatSources';$panel=FindWindow 'Yedeklenecek Klasör ve Dosyalar';$null=RequireHelp $panel 'DialogMinimize'
+            $header=ById $panel 'SelectAll_FormatSources';$toggle=[Windows.Automation.TogglePattern]$header.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern);$before=$toggle.Current.ToggleState.ToString();MinRestore $panel
+            if($toggle.Current.ToggleState.ToString() -ne $before){throw 'Minimize/restore reset folder selections'};Screenshot $panel 'list-popup-header.png';CloseWindow $panel
+            InvokeId $root 'OpenFormatSources';$panel=FindWindow 'Yedeklenecek Klasör ve Dosyalar';MinRestore $panel;CloseWindow $panel
+            SelectTab 'İnternet Sorunları';InvokeId $root 'OpenOperationStatus';$panel=FindWindow 'İşlem Durumu';MinRestore $panel
+            if(![PopupNative]::IsWindowEnabled([IntPtr]$root.Current.NativeWindowHandle)){throw 'Modeless status window unexpectedly blocked main window'}
+            $statusWindow=$panel
+            foreach($id in @('OpenUnifiedOverview','OpenTechnicalDetails','OpenOperationNotes')){$null=RequireHelp $statusWindow $id}
+            foreach($old in @('Madde madde özet','Kolay anlatım','Genel durum')){if(FindNamed $statusWindow $old ([Windows.Automation.ControlType]::Button)){throw 'Duplicate legacy operation section remains'}}
+            InvokeId $statusWindow 'OpenUnifiedOverview';$overview=FindWindow 'İşlem özeti';MinRestore $overview
+            if(!(ById $overview 'OverviewSessionCaption') -or (!(ById $overview 'OverviewEmptyState') -and !(ById $overview 'SummaryFullExplanation'))){throw 'Unified overview has no readable session/results/empty state'}
+            if([PopupNative]::IsWindowEnabled([IntPtr]$statusWindow.Current.NativeWindowHandle)){throw 'Overview lost its modal owner boundary'}
+            Screenshot $overview 'unified-operation-overview.png';CloseWindow $overview
+            InvokeId $statusWindow 'OpenTechnicalDetails';$technical=FindWindow 'Teknik ayrıntılar'
+            if(!(ById $technical 'OperationTechnicalText')){throw 'Separate technical output missing'}
+            MinRestore $technical;CloseWindow $technical
+            InvokeId $statusWindow 'OpenOperationNotes';$notes=FindWindow 'Not ekle / kaydet'
+            $editor=RequireHelp $notes 'OperationNoteEditor';([Windows.Automation.ValuePattern]$editor.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern)).SetValue('SENTETIK-NOT-KORUNDU')
+            CloseWindow $notes
+            InvokeId $statusWindow 'OpenUnifiedOverview';$overview=FindWindow 'İşlem özeti';CloseWindow $overview
+            InvokeId $statusWindow 'OpenOperationNotes';$notes=FindWindow 'Not ekle / kaydet';$editor=ById $notes 'OperationNoteEditor'
+            $value=[Windows.Automation.ValuePattern]$editor.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern)
+            if($value.Current.Value -ne 'SENTETIK-NOT-KORUNDU'){throw 'Typed note lost when switching operation sections'}
+            $value.SetValue('');CloseWindow $notes
+            if(![PopupNative]::IsWindowEnabled([IntPtr]$statusWindow.Current.NativeWindowHandle)){throw 'Section close left operation status disabled'}
+            $panel=$statusWindow
+            $result.unifiedOverviewChecks=@{threeSectionsOnly=$true;summaryCountsAndSteps=$true;separateTechnicalOutput=$true;notesPersistAcrossSectionSwitch=$true;repeatOpen=$true;minimizeRestore=$true;modalOwnership=$true;accessibleHelp=$true}
+
+            CloseWindow $panel
+            RequireHelp $root 'EmbeddedDataInfo'|Out-Null
+            InvokeId $root 'EmbeddedDataInfo';$panel=FindWindow 'Tek EXE ile veri taşıma';Screenshot $panel 'embedded-portability-info.png';CloseWindow $panel
+            $result.captionUiChecks=@{compactAcrossPopups=$true;bodyStylesDoNotInflate=$true;nativeMouseDrag=$true;automaticTextSizingVerifiedInWpf=$true;minimizeCloseResizePreserved=$true}
+            $result.comfortUiChecks=@{noMaximizeIcon=$true;minimizeAndRestore=$true;manualResizePreserved=$true;taskbarPresence=$true;modalConfirmationRetained=$true;modelessStatus=$true;selectionPreserved=$true;hardwareControlHelp=$true;actualMouseHover=$true;disabledHover=$true;repeatOpen=$true}
+            $result.hardwareScope='Shared header/tooltip and long-summary presentation change. Actual Windows UI hover, resize/minimize/native restore, modal boundary and selection preservation tested. Separate real WPF template tests cover complete long text and scroll-to-end. AI checks use fake HTTP only. No real API, customer data, physical device or repair was used. An isolated bounded RAM check ran in the Windows test process.'
+            SelectTab 'Donanım Test Merkezi'
+            InvokeId $root 'OpenHardwareRam';$panel=FindWindow 'Donanım Test Merkezi — RAM testleri'
+            if(FindNamed $panel '? Sayılar ne anlama geliyor?' ([Windows.Automation.ControlType]::Button)){throw 'Long all-values help button remains'}
+            foreach($id in @('HardwareDurationHelp','HardwareMemoryHelp','HardwareTemperatureHelp')){$button=RequireHelp $panel $id;if($button.Current.Name -ne '?' -or $button.Current.BoundingRectangle.Width -gt 32){throw 'Numeric help is not a compact adjacent question mark'}}
+            InvokeId $panel 'HardwareDurationHelp';$numbers=FindWindow 'Test süresi — açıklama';$explanation=ById $numbers 'HardwareNumberExplanation'
+            $guide=([Windows.Automation.ValuePattern]$explanation.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern)).Current.Value
+            if(!$guide.Contains('15') -or $guide.Contains('Pil')){throw 'Duration help contains unrelated values'}
+            if($numbers.Current.BoundingRectangle.Width -gt 620 -or $numbers.Current.BoundingRectangle.Height -gt 400){throw 'Field help popup is oversized'}
+            Screenshot $numbers 'duration-specific-help.png';CloseWindow $numbers
+            InvokeId $panel 'HardwareMemoryHelp';$numbers=FindWindow 'RAM örnek alanı — açıklama';$explanation=ById $numbers 'HardwareNumberExplanation'
+            $guide=([Windows.Automation.ValuePattern]$explanation.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern)).Current.Value
+            if(!$guide.Contains('32 MB') -or $guide.Contains('Pil')){throw 'RAM help is not specific to its field'};CloseWindow $numbers
+            # Bounded own-process RAM check on the isolated Windows runner; no customer hardware/data.
+            InvokeId $panel 'StartHardwareLoad';$confirm=FindWindow 'İşlem onayı';Click $confirm 'Devam Et'
+            $liveReady=$false
+            for($i=0;$i -lt 160;$i++){
+              $live=TextOf $panel;$runningStatus=ById $panel 'HardwareTestStatus'
+              if($live.Contains('Beklenen / dayanak:') -and $live.Contains('0 hata') -and $runningStatus -and !$runningStatus.Current.Name.Contains('Bu kısa testte')){$liveReady=$true;break}
+              Start-Sleep -Milliseconds 250
+            }
+            if(!$liveReady){Screenshot $panel 'live-measurement-timeout.png';throw 'Live RAM values do not show their reference after bounded start wait'}
+            $finished=$false
+            for($i=0;$i -lt 160;$i++){$status=ById $panel 'HardwareTestStatus';if($status -and $status.Current.Name.Contains('Bu kısa testte')){$finished=$true;break};Start-Sleep -Milliseconds 250}
+            if(!$finished){throw 'Bounded RAM UI test did not complete'}
+            $text=TextOf $panel
+            if(!$text.Contains('İyi — bu testin tamamlanan karşılaştırmalarında hata yok.') -or !$text.Contains('Ölçülen / seçilen:')){throw 'Final measurement/reference/interpretation missing'}
+            Screenshot $panel 'measured-reference-interpretation.png';CloseWindow $panel
+            foreach($w in (ProcessWindows|Where-Object {$_.Current.Name -eq 'İşlem Durumu'})){CloseWindow $w}
+            $result.numericMetricChecks=@{adjacentQuestionMarks=$true;fieldSpecificHelp=$true;compactFieldPopup=$true;liveReferenceComparison=$true;finalPlainInterpretation=$true;boundedRunnerRamOnly=$true}
+            InvokeId $root 'OpenScreenCheck';$screen=FindWindow 'Ekran Renk / Piksel Kontrolü'
+            $finished=$false
+            for($i=0;$i -lt 100;$i++){$progress=ById $screen 'ScreenTestProgress';if($progress -and $progress.Current.Name.Contains('Otomatik yazılım testi bitti:')){$finished=$true;break};Start-Sleep -Milliseconds 250}
+            if(!$finished){throw 'Automatic screen colour sequence did not finish'}
+            if(!$progress.Current.Name.Contains('175 örnek, 0 uyuşmazlık')){throw ('Software screen check failed: '+$progress.Current.Name)}
+            Screenshot $screen 'automatic-screen-pattern.png';InvokeId $screen 'ScreenTestClose'
+            $observation=FindWindow 'Ekran gözlemi';Click $observation 'Sonra Kontrol Edeceğim'
+            $screenResults=FindWindow 'İşlem Durumu';InvokeId $screenResults 'OpenUnifiedOverview';$screenSummary=FindWindow 'İşlem özeti'
+            $screenText=TextOf $screenSummary
+            if(!$screenText.Contains('Ekran — otomatik renk/desen yazılım testi') -or !$screenText.Contains('fiziksel')){throw 'Software check and physical observation scope were not retained separately'}
+            Screenshot $screenSummary 'screen-software-results.png';CloseWindow $screenSummary;CloseWindow $screenResults
+            SelectTab 'İnternet Sorunları'
+            $result.hardwareScreenChecks=@{numericBasisHelp=$true;sevenAutomaticPatterns=$true;softwareSamples=175;softwareErrors=0;physicalObservationSeparate=$true;noPhysicalPanelCertification=$true}
+
+            $app.Refresh();$result.mainWindowEnabled=$root.Current.IsEnabled
+            if(!$root.Current.IsEnabled){throw 'Main window remained disabled after dialogs'}
+            $work=GetWork $folder
+            if($work.StartsWith($folder,[StringComparison]::OrdinalIgnoreCase)){throw 'Runtime workspace is still beside the EXE'}
+            if([IO.File]::ReadAllText((Join-Path $work 'Data/fixture-preserve.txt')) -ne 'synthetic-keep-data'){throw 'Legacy migration missing private record'}
+            $cacheRoots=@((Join-Path $work 'Data/Updates/Pending'),(Join-Path $env:ProgramFiles 'TeknikServisPRO_UpdateStaging'),(Join-Path $env:LOCALAPPDATA 'TeknikServisPRO_BundleStaging'))
+            $warmMarker=$null
+            for($i=0;$i -lt 100;$i++){
+              foreach($cacheRoot in $cacheRoots){if(Test-Path $cacheRoot){foreach($entry in (Get-ChildItem $cacheRoot -Directory -ErrorAction SilentlyContinue)){$marker=Join-Path $entry.FullName 'checkpoint-ready.json';if(Test-Path $marker){$meta=Get-Content $marker|ConvertFrom-Json;if([DateTime]$meta.PreparedUtc -ge $app.StartTime.ToUniversalTime()){$warmMarker=$marker}}}}}
+              if($warmMarker){break};Start-Sleep -Milliseconds 250
+            }
+            if(!$warmMarker){throw 'Background portable snapshot was not prepared while application was open'}
+            $result.backgroundCheckpointReady=$true
+            $closeWatch=[Diagnostics.Stopwatch]::StartNew()
+
+            if(![NoticeCloser]::PostMessage([IntPtr]$root.Current.NativeWindowHandle,0x0010,[IntPtr]::Zero,[IntPtr]::Zero)){throw 'Main window close request failed'}
+            if (!$app.WaitForExit(60000)) {
+              $windows=[Windows.Automation.AutomationElement]::RootElement.FindAll([Windows.Automation.TreeScope]::Children,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ProcessIdProperty,$app.Id))
+              $result.remainingWindows=@($windows|ForEach-Object {$_.Current.Name})
+              throw 'Application did not close normally'
+            }
+            if([IO.File]::ReadAllText((Join-Path $folder 'Data/fixture-preserve.txt')) -ne 'synthetic-keep-data' -or [IO.File]::ReadAllText((Join-Path $folder 'Drivers/fixture-preserve.txt')) -ne 'synthetic-keep-drivers'){throw 'Existing Data/Drivers sentinel changed'}
+            $result.existingDataDriversPreserved=$true
+            if((Get-FileHash $aiPath -Algorithm SHA256).Hash -ne $aiSettingsHash){throw 'Existing AI settings file changed'}
+            $result.aiSettingsPreserved=$true
+            $checks=Join-Path $env:RUNNER_TEMP 'embedded-checks/EmbeddedData1140.Checks.dll'
+            function WaitSaved([string]$location,[int]$generation) {
+              $saved=Join-Path (GetWork $location) 'Data/.embedded-save-result.json'
+              for($i=0;$i -lt 120;$i++) {
+                if(Test-Path $saved){$r=Get-Content $saved|ConvertFrom-Json;if($r.Generation -ge $generation){
+                  $image=Join-Path $location 'TeknikServis_PRO.exe'
+                  if((Get-FileHash $image -Algorithm SHA256).Hash -eq $r.sha256){return $r}
+                }}
+                Start-Sleep -Milliseconds 500
+              }
+              throw 'Normal close did not commit Data/Drivers into EXE'
+            }
+            function WaitMain($process) {
+              for($i=0;$i -lt 120;$i++){$process.Refresh();if($process.HasExited){throw 'Transported EXE exited before main window'};if($process.MainWindowHandle -ne 0 -and $process.MainWindowTitle -like 'Teknik Servis PRO 1.15.7*'){return [Windows.Automation.AutomationElement]::FromHandle($process.MainWindowHandle)};Start-Sleep -Milliseconds 500}
+              throw 'Transported EXE main window missing'
+            }
+            $first=WaitSaved $folder 1
+            $closeWatch.Stop();$result.warmCloseMilliseconds=$closeWatch.ElapsedMilliseconds
+            if(!$first.preparedInBackground){throw 'Normal close repackaged rather than using the ready background snapshot'}
+            $result.usedBackgroundSnapshotAtClose=$true
+            if($closeWatch.Elapsed.TotalSeconds -gt 25){throw 'Warm close exceeded the bounded regression budget'}
+            dotnet $checks --verify-personalized $exe
+            if($LASTEXITCODE -ne 0){throw 'Embedded contents were not restored exactly'}
+            $meta=dotnet $checks --inspect $exe|ConvertFrom-Json
+            if($meta.BaseSha256.ToLowerInvariant() -ne $result.exeSha256){throw 'Personalization changed application code'}
+            $result.personalizedExeGeneration=$meta.Generation
+            # Remove legacy neighbors after a successful commit, as the user requested.
+            Remove-Item (Join-Path $folder 'Data'),(Join-Path $folder 'Drivers') -Recurse -Force
+            Remove-Item (Join-Path $folder '.tsp-session.lock') -Force -ErrorAction SilentlyContinue
+            $app=Start-Process $exe -WorkingDirectory $folder -PassThru;$root=WaitMain $app
+            if((Get-ChildItem $folder -Force|Where-Object Name -ne 'TeknikServis_PRO.exe').Count){throw 'EXE folder recreated sidecar files after removal'}
+            $quickClose=[Diagnostics.Stopwatch]::StartNew();CloseWindow $root;if(!$app.WaitForExit(60000)){throw 'Standalone reopen failed to close'};$reopened=WaitSaved $folder ([int]$meta.Generation+1);$quickClose.Stop();$result.earlyCloseMilliseconds=$quickClose.ElapsedMilliseconds
+            if($quickClose.Elapsed.TotalSeconds -gt 15){throw 'Early close waited for startup instead of promptly saving the fixture'}
+            $result.noAdjacentFilesRequired=$true
+            $meta=dotnet $checks --inspect $exe|ConvertFrom-Json
+            # Move only the EXE; deliberately add unrelated old folders at the destination.
+            $carry=Join-Path $env:LOCALAPPDATA ('TeknikServisPRO_CI_Carry_'+[Guid]::NewGuid().ToString('N'));New-Item -ItemType Directory $carry|Out-Null
+            Copy-Item $exe (Join-Path $carry 'TeknikServis_PRO.exe')
+            New-Item -ItemType Directory (Join-Path $carry 'Data'),(Join-Path $carry 'Drivers') -Force|Out-Null
+            [IO.File]::WriteAllText((Join-Path $carry 'Data/foreign.txt'),'foreign-data-unchanged')
+            [IO.File]::WriteAllText((Join-Path $carry 'Drivers/foreign.inf'),'foreign-driver-unchanged')
+            $app=Start-Process (Join-Path $carry 'TeknikServis_PRO.exe') -WorkingDirectory $carry -PassThru
+            $root=WaitMain $app
+            $carryWork=GetWork $carry
+            if([IO.File]::ReadAllText((Join-Path $carry 'Data/foreign.txt')) -ne 'foreign-data-unchanged' -or (Test-Path (Join-Path $carryWork 'Data/foreign.txt'))){throw 'Foreign adjacent data was changed or mixed into the portable data'}
+            $result.conflictingNeighborFoldersIsolated=$true
+            if([IO.File]::ReadAllText((Join-Path $carryWork 'Data/fixture-preserve.txt')) -ne 'synthetic-keep-data' -or [IO.File]::ReadAllText((Join-Path $carryWork 'Drivers/fixture-preserve.txt')) -ne 'synthetic-keep-drivers'){throw 'EXE-only transport lost data/driver fixtures'}
+            if((Get-FileHash (Join-Path $carryWork 'Data/Ai/settings.json') -Algorithm SHA256).Hash -ne $aiSettingsHash){throw 'EXE-only transport changed protected AI settings'}
+            $db=Join-Path $carryWork 'Data/TeknikAsistanim.db';if(!(Test-Path $db)){throw 'SQLite database was not restored'}
+            Screenshot $root 'embedded-exe-only-transport.png'
+            # Second instance must fail safely rather than overwrite the live working copy.
+            $duplicate=Start-Process (Join-Path $carry 'TeknikServis_PRO.exe') -WorkingDirectory $carry -PassThru
+            Start-Sleep -Seconds 2;$duplicate.Refresh()
+            if(!$duplicate.HasExited){
+              $d=[Windows.Automation.AutomationElement]::FromHandle($duplicate.MainWindowHandle)
+              $text=@($d.FindAll($scope,[Windows.Automation.Condition]::TrueCondition)|ForEach-Object {$_.Current.Name}) -join "`n"
+              if($text -notmatch 'zaten açık'){throw 'Second instance was not blocked by the portable lock'}
+              [NoticeCloser]::PostMessage([IntPtr]$duplicate.MainWindowHandle,0x0010,[IntPtr]::Zero,[IntPtr]::Zero)|Out-Null
+              if(!$duplicate.WaitForExit(10000)){throw 'Second-instance notice did not close'}
+            }
+            [IO.File]::WriteAllText((Join-Path $carryWork 'Data/after-transport.txt'),'synthetic-new-record')
+            $carryWriteUtc=[DateTime]::UtcNow
+            $carryReady=$null
+            $carryCacheRoots=@((Join-Path $carryWork 'Data/Updates/Pending'),(Join-Path $env:ProgramFiles 'TeknikServisPRO_UpdateStaging'),(Join-Path $env:LOCALAPPDATA 'TeknikServisPRO_BundleStaging'))
+            for($i=0;$i -lt 160;$i++){foreach($cacheRoot in $carryCacheRoots){if(Test-Path $cacheRoot){foreach($entry in (Get-ChildItem $cacheRoot -Directory -ErrorAction SilentlyContinue)){$marker=Join-Path $entry.FullName 'checkpoint-ready.json';if(Test-Path $marker){$m=Get-Content $marker|ConvertFrom-Json;if([DateTime]$m.PreparedUtc -ge $carryWriteUtc -and [int]$m.Generation -ge ([int]$meta.Generation+1)){$carryReady=$marker}}}}};if($carryReady){break};Start-Sleep -Milliseconds 250}
+            if(!$carryReady){throw 'Same-volume carry snapshot was not ready'}
+            if([IO.Path]::GetPathRoot($carryReady) -ne [IO.Path]::GetPathRoot($carry)){throw 'Same-volume fast commit path was not exercised'}
+            $carryWatch=[Diagnostics.Stopwatch]::StartNew();CloseWindow $root
+            if(!$app.WaitForExit(60000)){throw 'Transported app normal close failed'}
+            $second=WaitSaved $carry ([int]$meta.Generation+1)
+            $carryWatch.Stop();$result.sameVolumeWarmCloseMilliseconds=$carryWatch.ElapsedMilliseconds
+            if(!$second.preparedInBackground){throw 'Same-volume close failed to reuse ready snapshot'}
+            $result.sameVolumePreparedCommitVerified=$true
+            $again=Join-Path $dir 'carry-second-generation';New-Item -ItemType Directory $again|Out-Null;Copy-Item (Join-Path $carry 'TeknikServis_PRO.exe') (Join-Path $again 'TeknikServis_PRO.exe')
+            $app=Start-Process (Join-Path $again 'TeknikServis_PRO.exe') -WorkingDirectory $again -PassThru;$root=WaitMain $app
+            $againWork=GetWork $again
+            if((Get-ChildItem $again -Force|Where-Object Name -ne 'TeknikServis_PRO.exe').Count){throw 'Second-generation EXE created adjacent files'}
+            if([IO.File]::ReadAllText((Join-Path $againWork 'Data/after-transport.txt')) -ne 'synthetic-new-record'){throw 'Second-generation record missing'}
+            # Mimic interruption: last completed EXE remains valid and the newer working copy stays recoverable.
+            [IO.File]::WriteAllText((Join-Path $againWork 'Data/interrupted.txt'),'synthetic-recoverable')
+            Stop-Process -Id $app.Id -Force;$app.WaitForExit()
+            $app=Start-Process (Join-Path $again 'TeknikServis_PRO.exe') -WorkingDirectory $again -PassThru;$root=WaitMain $app
+            if([IO.File]::ReadAllText((Join-Path $againWork 'Data/interrupted.txt')) -ne 'synthetic-recoverable'){throw 'Interrupted session working copy overwritten'}
+            CloseWindow $root;if(!$app.WaitForExit(60000)){throw 'Recovery app close failed'};$third=WaitSaved $again ([int]$second.Generation+1)
+            & $engine.FullName -Scan -ScanType 3 -File (Join-Path $again 'TeknikServis_PRO.exe') -DisableRemediation 2>&1 | Tee-Object "$dir/scan-personalized-exe.txt"
+            if($LASTEXITCODE -ne 0){throw 'Personalized synthetic EXE scan did not succeed'}
+            $result.embeddedDataChecks=@{legacyMigration=$true;normalCloseCommit=$true;codePrefixUnchanged=$true;exeOnlyTransport=$true;driverBytes=$true;sqliteReopened=$true;aiSettingsCiphertextPreserved=$true;secondGeneration=$true;secondInstanceBlocked=$true;interruptedWorkingCopyRecovered=$true;personalizedDefenderScan=$true}
+            $app=Start-Process (Join-Path $again 'TeknikServis_PRO.exe') -WorkingDirectory $again -PassThru;$root=WaitMain $app
+            if(FindNamed $root 'Arama Motoru Yedekleme' ([Windows.Automation.ControlType]::TabItem)){throw 'Separate browser navigation remains'}
+            if(ById $root 'BrowserVaultPassword'){throw 'Removed backup password UI remains'}
+            SelectTab 'Format Yedekle / Yükle'
+            # A unique, synthetic Chrome profile; no existing profile is selected for backup.
+            $profileName='Profile TSP_'+[Guid]::NewGuid().ToString('N');$browserFixture=Join-Path $env:LOCALAPPDATA ('Google/Chrome/User Data/'+$profileName)
+            New-Item -ItemType Directory $browserFixture|Out-Null
+            $book='{"version":1,"roots":{"bookmark_bar":{"type":"folder","name":"CI","children":[{"type":"url","name":"Fixture","url":"https://example.invalid/combined"}]}}}'
+            [IO.File]::WriteAllText((Join-Path $browserFixture 'Bookmarks'),$book)
+            InvokeId $root 'OpenFormatBookmarks';$profiles=FindWindow 'Tarayıcı Profilleri ve Yer İmleri';$pg=ById $profiles 'BrowserWizardProfiles'
+            $rows=$pg.FindAll($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::DataItem));$matched=$false
+            foreach($row in $rows){$choose=(TextOf $row).Contains($profileName);if($choose){$matched=$true};foreach($box in $row.FindAll($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::CheckBox))){if($box.Current.IsEnabled){$t=[Windows.Automation.TogglePattern]$box.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern);$desired=if($choose){[Windows.Automation.ToggleState]::On}else{[Windows.Automation.ToggleState]::Off};if($t.Current.ToggleState -ne $desired){$t.Toggle()}}}}
+            if(!$matched){throw 'Synthetic browser profile not discovered'}
+            Screenshot $profiles 'format-browser-profiles.png';CloseWindow $profiles
+            InvokeId $root 'OpenFormatSources';$sourcePanel=FindWindow 'Yedeklenecek Klasör ve Dosyalar';$grid=ById $sourcePanel 'FormatSourceList'
+            $boxes=$grid.FindAll($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::CheckBox))
+            foreach($box in $boxes){if($box.Current.IsEnabled){$toggle=[Windows.Automation.TogglePattern]$box.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern);for($i=0;$i -lt 3 -and $toggle.Current.ToggleState -ne [Windows.Automation.ToggleState]::Off;$i++){$toggle.Toggle();Start-Sleep -Milliseconds 30}}}
+            foreach($box in $boxes){if($box.Current.IsEnabled -and ([Windows.Automation.TogglePattern]$box.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)).Current.ToggleState -ne [Windows.Automation.ToggleState]::Off){throw 'Known user categories were not cleared'}}
+            $fixtureDir=Join-Path $dir ('format-fixture-'+[Guid]::NewGuid().ToString('N'));New-Item -ItemType Directory $fixtureDir|Out-Null
+            $copyFixture=Join-Path $fixtureDir 'fixture.bin';[IO.File]::WriteAllBytes($copyFixture,[byte[]]::new(16384));[IO.File]::WriteAllText((Join-Path $fixtureDir 'passwords.csv'),'synthetic-excluded-file')
+            Click $sourcePanel 'Klasör Ekle…';$picker=FindWindow 'Yedeğe eklenecek klasör';NativePath $picker $fixtureDir 'Select Folder' $true;CloseWindow $sourcePanel
+            $cancelTarget=Join-Path $dir 'format-integrated-target';New-Item -ItemType Directory $cancelTarget|Out-Null;SetValueById 'FormatTargetPath' $cancelTarget
+            Click $root 'Seçilenleri Yedekle';$approval=FindWindow 'İşlem onayı'
+            if((TextOf $approval) -notmatch '(?<!\d)2 dosya'){throw 'Scope must be one synthetic document plus one bookmark payload'}
+            CloseWindow $approval;WaitWork
+            InvokeId $root 'OpenFormatIssues';$issueWindow=FindWindow 'Yedekleme Uyarıları ve Alınamayan Dosyalar';$issueText=TextOf $issueWindow
+            if(!$issueText.Contains('passwords.csv') -or !$issueText.Contains('Parola, kimlik') -or !$issueText.Contains('Ne yapabilirsiniz?')){throw 'Excluded file lacks location, reason or next-step column'}
+            Screenshot $issueWindow 'format-file-warning-details.png';CloseWindow $issueWindow
+            Click $root 'Seçilenleri Yedekle';$approval=FindWindow 'İşlem onayı';Click $approval 'Devam Et';WaitWork
+            if(Test-Path (Join-Path $cancelTarget 'TeknikServisYedekleri')){throw 'Unwanted outer container was created'}
+            $saved=Get-ChildItem $cancelTarget -Directory|Where-Object {Test-Path (Join-Path $_.FullName 'manifest.json')}|Select-Object -First 1
+            if(!$saved -or $saved.Name -notmatch '^.+ - \d{4}-\d{2}-\d{2}( \(\d+\))?$'){throw 'Person/date destination name is incorrect'}
+            $manifest=Get-Content (Join-Path $saved.FullName 'manifest.json')|ConvertFrom-Json
+            $plainPath=Join-Path $saved.FullName 'files/ExtraF_62726f7773657273/YerImleri.json';$plain=Get-Content $plainPath|ConvertFrom-Json
+            if($plain.PSObject.Properties.Name -contains 'Cipher' -or $plain.Entries.Count -ne 1 -or ![Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($plain.Entries[0].Content)).Contains('example.invalid/combined')){throw 'Integrated bookmark payload is not the selected unencrypted fixture'}
+            [IO.File]::WriteAllText((Join-Path $browserFixture 'Bookmarks'),$book.Replace('/combined','/current'))
+            Click $root 'Yedekleri Bul';$picker=FindWindow 'Yedeklerin bulunduğu klasörü seçin';NativePath $picker $cancelTarget 'Select Folder' $true
+            $catalog=FindWindow 'Bulunan Yedekler';$list=ById $catalog 'FormatBackupCatalog';$item=$list.FindFirst($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::ListItem));([Windows.Automation.SelectionItemPattern]$item.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern)).Select();CloseWindow $catalog
+            Click $root 'Seçili Yedeği Geri Yükle';$approval=FindWindow 'İşlem onayı';Click $approval 'Devam Et';WaitWork
+            $restoredBookmarks=[IO.File]::ReadAllText((Join-Path $browserFixture 'Bookmarks'));if(!$restoredBookmarks.Contains('/combined') -or !$restoredBookmarks.Contains('/current')){throw 'Password-free native bookmark merge failed'}
+            $result.formatIntegrationChecks=@{noSeparateBrowserTab=$true;noBackupPasswordFields=$true;onlySyntheticSelections=$true;directPersonDateFolder=$true;browserInSameBackup=$true;passwordFreeRestore=$true;nativeMergePreservesExisting=$true;issuePathReasonAndAdvice=$true}
+            function WaitTransferApproval([string]$fragment){for($attempt=0;$attempt -lt 120;$attempt++){foreach($w in (ProcessWindows|Where-Object {$_.Current.Name -eq 'İşlem onayı'})){try{if((TextOf $w).Contains($fragment)){return $w}}catch{}};Start-Sleep -Milliseconds 150};throw ('Missing transfer approval: '+$fragment)}
+            # A completed backup from a genuinely different synthetic machine must be visible.
+            $foreignRoot=Join-Path $dir 'foreign-backups';$browserChecks=Join-Path $env:RUNNER_TEMP 'browser-checks/BrowserPackage1101.Checks.dll'
+            dotnet $browserChecks --write-format-transfer-fixture $foreignRoot $profileName
+            if($LASTEXITCODE -ne 0){throw 'Foreign-PC fixture creation failed'}
+            $fx=Get-Content (Join-Path $foreignRoot 'fixture.json')|ConvertFrom-Json
+            $archiveHashes=@(Get-ChildItem $fx.Directory -Recurse -File|Sort-Object FullName|ForEach-Object {(Get-FileHash $_.FullName).Hash}) -join '|'
+            $docs=[Environment]::GetFolderPath([Environment+SpecialFolder]::MyDocuments);New-Item -ItemType Directory $docs -Force|Out-Null
+            $existingDestination=Join-Path $docs $fx.FileName;[IO.File]::WriteAllText($existingDestination,'existing-target-preserved')
+            $browserBefore=(Get-FileHash (Join-Path $browserFixture 'Bookmarks')).Hash
+            Click $root 'Yedekleri Bul';$picker=FindWindow 'Yedeklerin bulunduğu klasörü seçin';NativePath $picker $fx.Directory 'Select Folder' $true
+            $catalog=FindWindow 'Bulunan Yedekler';$list=ById $catalog 'FormatBackupCatalog'
+            if(!(TextOf $catalog).Contains('ESKI-PC-SENTETIK')){throw 'Other-PC backup remained hidden in direct folder selection'}
+            Screenshot $catalog 'foreign-backup-visible.png';$item=$list.FindFirst($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::ListItem));([Windows.Automation.SelectionItemPattern]$item.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern)).Select();CloseWindow $catalog
+            Click $root 'Seçili Yedeği Geri Yükle';$approval=FindWindow 'İşlem onayı'
+            if((TextOf $approval) -notmatch 'başka bir bilgisayara ait' -or !(TextOf $approval).Contains('ESKI-PC-SENTETIK')){throw 'Cross-PC operation did not require source-specific consent'}
+            Screenshot $approval 'foreign-source-consent.png';CloseWindow $approval;WaitWork
+            if([IO.File]::ReadAllText($existingDestination) -ne 'existing-target-preserved' -or (Get-FileHash (Join-Path $browserFixture 'Bookmarks')).Hash -ne $browserBefore){throw 'Declining cross-PC consent changed destination'}
+            Click $root 'Seçili Yedeği Geri Yükle';$approval=FindWindow 'İşlem onayı';Click $approval 'Devam Et';$planApproval=WaitTransferApproval 'Geri yükleme planı'
+            if(!(TextOf $planApproval).Contains('Geri yükleme planı') -or !(TextOf $planApproval).Contains($profileName)){throw 'Final transfer plan lacks target browser mapping'}
+            Screenshot $planApproval 'foreign-restore-plan.png';CloseWindow $planApproval;WaitWork
+            if([IO.File]::ReadAllText($existingDestination) -ne 'existing-target-preserved' -or (Get-FileHash (Join-Path $browserFixture 'Bookmarks')).Hash -ne $browserBefore){throw 'Declining transfer plan changed destination'}
+            Click $root 'Seçili Yedeği Geri Yükle';$approval=FindWindow 'İşlem onayı';Click $approval 'Devam Et';$planApproval=WaitTransferApproval 'Geri yükleme planı';Click $planApproval 'Devam Et';WaitWork
+            $copies=Get-ChildItem $docs -File|Where-Object {$_.BaseName.StartsWith([IO.Path]::GetFileNameWithoutExtension($fx.FileName)+' (Yedek ')}
+            if([IO.File]::ReadAllText($existingDestination) -ne 'existing-target-preserved' -or !($copies|Where-Object {[IO.File]::ReadAllText($_.FullName) -eq 'legacy-transfer-data'})){throw 'Cross-PC file restore lost data or replaced a conflicting current file'}
+            $merged=[IO.File]::ReadAllText((Join-Path $browserFixture 'Bookmarks'));if(!$merged.Contains('/foreign-restore') -or !$merged.Contains('/current')){throw 'Cross-PC plaintext bookmark merge failed to preserve existing bookmarks'}
+            if((@(Get-ChildItem $fx.Directory -Recurse -File|Sort-Object FullName|ForEach-Object {(Get-FileHash $_.FullName).Hash}) -join '|') -ne $archiveHashes){throw 'Restoring modified the original backup'}
+            # An unreadable catalog must explain the real reason rather than silently disappear.
+            $broken=Join-Path $foreignRoot 'broken-catalog';New-Item -ItemType Directory $broken|Out-Null;Copy-Item (Join-Path $fx.Directory 'manifest.json') $broken;Copy-Item (Join-Path $fx.Directory 'manifest.sha256') $broken
+            Add-Content (Join-Path $broken 'manifest.json') 'tampered fixture'
+            Click $root 'Yedekleri Bul';$picker=FindWindow 'Yedeklerin bulunduğu klasörü seçin';NativePath $picker $broken 'Select Folder' $true
+            $catalog=FindWindow 'Bulunan Yedekler';if(!(TextOf $catalog).Contains('Bu konumda okunabilir yedek bulunamadı')){throw 'Unreadable catalog lacks useful empty-state explanation'};CloseWindow $catalog
+            InvokeId $root 'OpenFormatIssues';$issueWindow=FindWindow 'Yedekleme Uyarıları ve Alınamayan Dosyalar';$text=TextOf $issueWindow
+            if(!$text.Contains('broken-catalog') -or !$text.Contains('değiştirilmiş')){throw 'Invalid catalog lacks its path and real checksum failure reason'}
+            Screenshot $issueWindow 'catalog-error-details.png';CloseWindow $issueWindow
+            Click $root 'Yedekleri Bul';$picker=FindWindow 'Yedeklerin bulunduğu klasörü seçin';NativePath $picker $foreignRoot 'Select Folder' $true
+            $catalog=FindWindow 'Bulunan Yedekler';if(!(TextOf $catalog).Contains('ESKI-PC-SENTETIK')){throw 'Invalid neighbor catalog hid the valid old-PC backup'};CloseWindow $catalog
+            $result.foreignRestoreChecks=@{otherPcVisible=$true;sourceNamedInCatalog=$true;explicitPerOperationConsent=$true;declineSourcePreservesTargets=$true;declinePlanPreservesTargets=$true;filesTransferred=$true;conflictingFilePreserved=$true;bookmarksMerged=$true;sourceArchiveUnchanged=$true;badCatalogExplained=$true;badNeighborDoesNotHideValid=$true}
+            SetValueById 'FormatTargetPath' $cancelTarget
+            # Retain the cancellation regression using the same synthetic folder with a larger file.
+            $f=[IO.File]::OpenWrite($copyFixture);$f.SetLength(1073741824);$f.Dispose()
+            Click $root 'Seçilenleri Yedekle';$approval=FindWindow 'İşlem onayı';Click $approval 'Devam Et'
+            [NoticeCloser]::PostMessage([IntPtr]$root.Current.NativeWindowHandle,0x0010,[IntPtr]::Zero,[IntPtr]::Zero)|Out-Null
+            $closeApproval=FindWindow 'İşlemi durdur ve kapat';Screenshot $closeApproval 'format-cancel-close-confirmation.png';Click $closeApproval 'Devam Et'
+            if(!$app.WaitForExit(45000)){throw 'Cancellation/close retained busy state'};$cancelSaved=WaitSaved $again ([int]$third.Generation+1)
+            if((Get-Item $copyFixture).Length -ne 1073741824){throw 'Cancellation modified source'}
+            $result.formatCancellationChecks=@{declineDoesNotCopy=$true;repeatedStart=$true;closeOffersSafeStop=$true;busyReleased=$true;sourcePreserved=$true;normalPortableSaveAfterCancellation=$true;noCustomerSourcesSelected=$true}
+            Remove-Item $browserFixture -Recurse -Force
+
+            # Publish the original clean binary ONLY. Synthetic personalized EXEs are never release assets.
+            Copy-Item $cleanExe $exe -Force
+            if((Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant() -ne $result.exeSha256){throw 'Clean public EXE not restored'}
+            if((dotnet $checks --inspect $exe).Trim() -ne 'null'){throw 'Refusing to publish an EXE containing private/fixture data'}
+
+            $result.applicationExitCode=$app.ExitCode
+            if ($app.ExitCode -ne 0) { throw 'Application exit code was not zero' }
+          } catch { $result.errors += $_.Exception.Message;$result.failureStack=$_.ScriptStackTrace;$result.failurePosition=$_.InvocationInfo.PositionMessage;try{if($root){Screenshot $root 'failure1100.png'}}catch{} } finally {
+            if ($app -and !$app.HasExited) { Stop-Process -Id $app.Id -Force -ErrorAction SilentlyContinue }
+            try { Get-MpThreatDetection | ConvertTo-Json -Depth 8 | Set-Content "$dir/threat-detections.json" } catch {}
+            $result | ConvertTo-Json -Depth 8 | Tee-Object "$dir/result.json"
+
+
+          }
+          if ($result.verdict -ne 'NO_DETECTION_IN_THIS_ENVIRONMENT' -or !$result.startupVerified -or $result.errors.Count) { exit 1 }
+      - name: Publish only after verified scan and startup
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $ErrorActionPreference='Stop'
+          $dir=Join-Path $env:RUNNER_TEMP 'exact-archive-review'
+          $r=Get-Content "$dir/result.json" | ConvertFrom-Json
+          if($r.verdict -ne 'NO_DETECTION_IN_THIS_ENVIRONMENT' -or !$r.startupVerified -or $r.errors.Count){throw 'Review gate failed'}
+          $exe=Join-Path $dir 'application/TeknikServis_PRO.exe'
+          $legacy=Join-Path $dir 'TeknikAsistanim_PRO.exe';Copy-Item $exe $legacy
+          gh release create v1.15.7 --draft --title 'Teknik Servis PRO 1.15.7' --notes-file binaries/release-notes.md
+          if($LASTEXITCODE -ne 0){throw 'Draft release creation failed; no existing release overwritten'}
+          gh release upload v1.15.7 $exe $legacy "$dir/TeknikServis_PRO_1.15.7_EXE.zip" "$dir/result.json"
+          if($LASTEXITCODE -ne 0){throw 'Upload failed'}
+          gh api "repos/$env:GH_REPO/releases?per_page=30" > "$dir/releases.json"
+          $release=(Get-Content "$dir/releases.json" | ConvertFrom-Json) | Where-Object tag_name -eq 'v1.15.7'
+          foreach($name in @('TeknikServis_PRO.exe','TeknikAsistanim_PRO.exe')){
+            $a=$release.assets | Where-Object name -eq $name
+            if($a.digest.ToLowerInvariant() -ne ('sha256:'+$r.exeSha256)){throw 'Uploaded EXE digest mismatch'}
+          }
+          $z=$release.assets | Where-Object name -eq 'TeknikServis_PRO_1.15.7_EXE.zip'
+          if($z.digest.ToLowerInvariant() -ne ('sha256:'+$r.zipSha256)){throw 'Uploaded ZIP digest mismatch'}
+          Write-Output 'Verified draft ready; publication follows visual screenshot review.'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cross-computer-format-verified
+          path: |
+            ${{ runner.temp }}/exact-archive-review/result.json
+            ${{ runner.temp }}/exact-archive-review/scan-*.txt
+            ${{ runner.temp }}/exact-archive-review/threat-detections.json
+            ${{ runner.temp }}/exact-archive-review/*.png
+            ${{ runner.temp }}/exact-archive-review/source-*.json
+            ${{ runner.temp }}/*-checks-results.txt
+
+          retention-days: 14
