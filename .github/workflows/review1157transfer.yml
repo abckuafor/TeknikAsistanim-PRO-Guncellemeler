@@ -525,11 +525,11 @@ jobs:
             Click $root 'Yedekleri Bul';$picker=FindWindow 'Yedeklerin bulunduğu klasörü seçin';NativePath $picker $broken 'Select Folder' $true
             $catalog=FindWindow 'Bulunan Yedekler';if(!(TextOf $catalog).Contains('Bu konumda okunabilir yedek bulunamadı')){throw 'Unreadable catalog lacks useful empty-state explanation'};CloseWindow $catalog
             InvokeId $root 'OpenFormatIssues';$issueWindow=FindWindow 'Yedekleme Uyarıları ve Alınamayan Dosyalar';$text=TextOf $issueWindow
-            if(!$text.Contains('broken-catalog') -or !$text.Contains('değiştirilmiş')){throw 'Invalid catalog lacks its path and real checksum failure reason'}
+            if(!$text.Contains('broken-catalog') -or !$text.Contains('değiştirilmiş') -or !$text.Contains('sağlam başka bir yedek')){throw 'Invalid catalog lacks its path and real checksum failure reason'}
             Screenshot $issueWindow 'catalog-error-details.png';CloseWindow $issueWindow
             Click $root 'Yedekleri Bul';$picker=FindWindow 'Yedeklerin bulunduğu klasörü seçin';NativePath $picker $foreignRoot 'Select Folder' $true
             $catalog=FindWindow 'Bulunan Yedekler';if(!(TextOf $catalog).Contains('ESKI-PC-SENTETIK')){throw 'Invalid neighbor catalog hid the valid old-PC backup'};CloseWindow $catalog
-            $result.foreignRestoreChecks=@{otherPcVisible=$true;sourceNamedInCatalog=$true;explicitPerOperationConsent=$true;declineSourcePreservesTargets=$true;declinePlanPreservesTargets=$true;filesTransferred=$true;conflictingFilePreserved=$true;bookmarksMerged=$true;sourceArchiveUnchanged=$true;badCatalogExplained=$true;badNeighborDoesNotHideValid=$true}
+            $result.foreignRestoreChecks=@{otherPcVisible=$true;sourceNamedInCatalog=$true;explicitPerOperationConsent=$true;declineSourcePreservesTargets=$true;declinePlanPreservesTargets=$true;filesTransferred=$true;conflictingFilePreserved=$true;bookmarksMerged=$true;sourceArchiveUnchanged=$true;badCatalogExplained=$true;checksumAdviceAccurate=$true;badNeighborDoesNotHideValid=$true}
             SetValueById 'FormatTargetPath' $cancelTarget
             # Retain the cancellation regression using the same synthetic folder with a larger file.
             $f=[IO.File]::OpenWrite($copyFixture);$f.SetLength(1073741824);$f.Dispose()
