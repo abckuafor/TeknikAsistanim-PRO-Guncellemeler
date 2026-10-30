@@ -288,7 +288,11 @@ jobs:
             # Hover a new action only. Never invoke release/restart/reinstall/restore on the runner NIC.
             $hover=ById $panel 'ProtectedNetworkRestart';$rect=$hover.Current.BoundingRectangle
             if($rect.IsEmpty -or $hover.Current.IsOffscreen){throw 'Network restart action not comfortably visible'}
-            HoverHelp $hover 'Yalnız seçili fiziksel adaptörü'
+            $result.protectedNetworkHoverDetails=@{help=$hover.Current.HelpText;enabled=$hover.Current.IsEnabled;bounds=$rect.ToString()}
+            try{HoverHelp $hover 'Yalnız seçili fiziksel adaptörü'}catch{
+              $tips=[Windows.Automation.AutomationElement]::RootElement.FindAll($scope,[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::ToolTip));$result.protectedNetworkHoverDetails.tips=@($tips|ForEach-Object {TextOf $_})
+              $bounds=$panel.Current.BoundingRectangle;$shot=[Drawing.Bitmap]::new([int]$bounds.Width,[int]$bounds.Height);$g=[Drawing.Graphics]::FromImage($shot);$g.CopyFromScreen([int]$bounds.X,[int]$bounds.Y,0,0,$shot.Size);$shot.Save((Join-Path $dir 'protected-network-hover-failed.png'),[Drawing.Imaging.ImageFormat]::Png);$g.Dispose();$shot.Dispose();throw
+            }
             $bounds=$panel.Current.BoundingRectangle
             $hoverImage=[Drawing.Bitmap]::new([int]$bounds.Width,[int]$bounds.Height);$hoverGraphics=[Drawing.Graphics]::FromImage($hoverImage)
             $hoverGraphics.CopyFromScreen([int]$bounds.X,[int]$bounds.Y,0,0,$hoverImage.Size);$hoverImage.Save((Join-Path $dir 'protected-network-hover.png'),[Drawing.Imaging.ImageFormat]::Png);$hoverGraphics.Dispose();$hoverImage.Dispose();CloseWindow $panel
