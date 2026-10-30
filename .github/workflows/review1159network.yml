@@ -288,11 +288,13 @@ jobs:
             # Hover a new action only. Never invoke release/restart/reinstall/restore on the runner NIC.
             $hover=ById $panel 'ProtectedNetworkRestart';$rect=$hover.Current.BoundingRectangle
             if($rect.IsEmpty -or $hover.Current.IsOffscreen){throw 'Network restart action not comfortably visible'}
-            [Windows.Forms.Cursor]::Position=[Drawing.Point]::new([int]($rect.Left+$rect.Width/2),[int]($rect.Top+$rect.Height/2));Start-Sleep -Milliseconds 800
-            Screenshot $panel 'protected-network-hover.png';CloseWindow $panel
+            HoverHelp $hover 'Yalnız seçili fiziksel adaptörü'
+            $bounds=$panel.Current.BoundingRectangle
+            $hoverImage=[Drawing.Bitmap]::new([int]$bounds.Width,[int]$bounds.Height);$hoverGraphics=[Drawing.Graphics]::FromImage($hoverImage)
+            $hoverGraphics.CopyFromScreen([int]$bounds.X,[int]$bounds.Y,0,0,$hoverImage.Size);$hoverImage.Save((Join-Path $dir 'protected-network-hover.png'),[Drawing.Imaging.ImageFormat]::Png);$hoverGraphics.Dispose();$hoverImage.Dispose();CloseWindow $panel
             InvokeId $root 'OpenProtectedNetwork';$panel=FindWindow 'Gelişmiş Ağ Onarımı';CloseWindow $panel
             if(!$root.Current.IsEnabled){throw 'Closing protected network window did not release owner'}
-            $result.protectedNetworkUiChecks=@{allActionHelp=$true;widePopup=$true;compactCaption=$true;minimizeRestore=$true;repeatOpenClose=$true;actionVisible=$true;noRealNicMutation=$true}
+            $result.protectedNetworkUiChecks=@{actualHoverExplanation=$true;allActionHelp=$true;widePopup=$true;compactCaption=$true;minimizeRestore=$true;repeatOpenClose=$true;actionVisible=$true;noRealNicMutation=$true}
             $result.phase='List selection preserved across minimized modal popup'
             SelectTab 'Format Yedekle / Yükle';InvokeId $root 'OpenFormatSources';$panel=FindWindow 'Yedeklenecek Klasör ve Dosyalar';$null=RequireHelp $panel 'DialogMinimize'
             $header=ById $panel 'SelectAll_FormatSources';$toggle=[Windows.Automation.TogglePattern]$header.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern);$before=$toggle.Current.ToggleState.ToString();MinRestore $panel
