@@ -523,6 +523,7 @@ jobs:
             Click $root 'Seçili Yedeği Geri Yükle';$approval=FindWindow 'İşlem onayı';Click $approval 'Devam Et';$planApproval=WaitTransferApproval 'Geri yükleme planı'
             $planText=TextOf $planApproval
             if(!$planText.Contains($docs) -or !$planText.Contains('DEĞİŞTİRİLİR') -or !$planText.Contains('Yedekte bulunmayan hedef dosyalar silinmez')){throw 'Final confirmation lacks actual Windows folder mapping and replacement consequences'}
+            if($planText.IndexOf('DEĞİŞTİRİLİR') -gt $planText.IndexOf('Kaynak:')){throw 'Replacement consequence must appear before the long source and folder plan'}
             Screenshot $planApproval 'current-user-merge-confirmation.png';Click $planApproval 'Devam Et';WaitWork
             if([IO.File]::ReadAllText($existingDestination) -ne 'legacy-transfer-data'){throw 'Approved restore did not merge into current Windows Documents'}
             $unexpectedCopies=Get-ChildItem $docs -File|Where-Object {$_.BaseName.StartsWith([IO.Path]::GetFileNameWithoutExtension($fx.FileName)+' (Yedek ')}
