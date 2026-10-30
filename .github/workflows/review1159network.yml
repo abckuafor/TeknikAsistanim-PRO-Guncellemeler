@@ -641,5 +641,8 @@ jobs:
             ${{ runner.temp }}/exact-archive-review/*.png
             ${{ runner.temp }}/exact-archive-review/source-*.json
             ${{ runner.temp }}/*-checks-results.txt
+            ${{ runner.temp }}/network-policy-results.txt
+            ${{ runner.temp }}/network-script-results.txt
+            ${{ runner.temp }}/network-windows-results.txt
 
           retention-days: 14
