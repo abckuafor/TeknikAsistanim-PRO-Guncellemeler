@@ -302,7 +302,15 @@ jobs:
             }
             $bounds=$panel.Current.BoundingRectangle
             $hoverImage=[Drawing.Bitmap]::new([int]$bounds.Width,[int]$bounds.Height);$hoverGraphics=[Drawing.Graphics]::FromImage($hoverImage)
-            $hoverGraphics.CopyFromScreen([int]$bounds.X,[int]$bounds.Y,0,0,$hoverImage.Size);$hoverImage.Save((Join-Path $dir 'protected-network-hover.png'),[Drawing.Imaging.ImageFormat]::Png);$hoverGraphics.Dispose();$hoverImage.Dispose();CloseWindow $panel
+            $hoverGraphics.CopyFromScreen([int]$bounds.X,[int]$bounds.Y,0,0,$hoverImage.Size);$hoverImage.Save((Join-Path $dir 'protected-network-hover.png'),[Drawing.Imaging.ImageFormat]::Png);$hoverGraphics.Dispose();$hoverImage.Dispose()
+            $result.phase='Protected network close and repeated navigation after visible tooltip'
+            $mainHandle=[IntPtr]$root.Current.NativeWindowHandle;$networkHandle=[IntPtr]$panel.Current.NativeWindowHandle
+            # Simulate a real user moving from the tooltip to X, rather than posting WM_CLOSE under an open native tooltip.
+            $close=ById $panel 'DialogClose';$cr=$close.Current.BoundingRectangle
+            [NoticeCloser]::SetCursorPos([int]($cr.X+$cr.Width/2),[int]($cr.Y+$cr.Height/2))|Out-Null;Start-Sleep -Milliseconds 200
+            ([Windows.Automation.InvokePattern]$close.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern)).Invoke()
+            for($n=0;$n -lt 20;$n++){$root=[Windows.Automation.AutomationElement]::FromHandle($mainHandle);if($root.Current.IsEnabled -and (ById $root 'OpenProtectedNetwork')){break};Start-Sleep -Milliseconds 150}
+            $app.Refresh();$result.protectedNetworkCloseProbe=@{processExited=$app.HasExited;rootName=$root.Current.Name;rootBounds=$root.Current.BoundingRectangle.ToString();rootHandle=$mainHandle.ToInt64();panelHandle=$networkHandle.ToInt64();windows=@(ProcessWindows|ForEach-Object {$_.Current.Name})}
             InvokeId $root 'OpenProtectedNetwork';$panel=FindWindow 'Gelişmiş Ağ Onarımı';CloseWindow $panel
             if(!$root.Current.IsEnabled){throw 'Closing protected network window did not release owner'}
             $result.protectedNetworkUiChecks=@{actualHoverExplanation=$true;allActionHelp=$true;widePopup=$true;compactCaption=$true;minimizeRestore=$true;repeatOpenClose=$true;actionVisible=$true;noRealNicMutation=$true}
@@ -610,7 +618,7 @@ jobs:
 
             $result.applicationExitCode=$app.ExitCode
             if ($app.ExitCode -ne 0) { throw 'Application exit code was not zero' }
-          } catch { $result.errors += $_.Exception.Message;$result.failureStack=$_.ScriptStackTrace;$result.failurePosition=$_.InvocationInfo.PositionMessage;try{if($root){Screenshot $root 'failure1100.png'}}catch{} } finally {
+          } catch { $result.errors += $_.Exception.Message;$result.failureStack=$_.ScriptStackTrace;$result.failurePosition=$_.InvocationInfo.PositionMessage;try{if($root){Screenshot $root 'failure1100.png'}}catch{};try{$result.failureWindows=@(ProcessWindows|ForEach-Object {@{name=$_.Current.Name;handle=$_.Current.NativeWindowHandle;bounds=$_.Current.BoundingRectangle.ToString()}});$desktop=[Windows.Forms.SystemInformation]::VirtualScreen;$snap=[Drawing.Bitmap]::new($desktop.Width,$desktop.Height);$g=[Drawing.Graphics]::FromImage($snap);$g.CopyFromScreen($desktop.X,$desktop.Y,0,0,$snap.Size);$snap.Save((Join-Path $dir 'failure-desktop.png'),[Drawing.Imaging.ImageFormat]::Png);$g.Dispose();$snap.Dispose()}catch{} } finally {
             if ($app -and !$app.HasExited) { Stop-Process -Id $app.Id -Force -ErrorAction SilentlyContinue }
             try { Get-MpThreatDetection | ConvertTo-Json -Depth 8 | Set-Content "$dir/threat-detections.json" } catch {}
             $result | ConvertTo-Json -Depth 8 | Tee-Object "$dir/result.json"
