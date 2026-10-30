@@ -1,0 +1,43 @@
+name: Publish visually reviewed 1.15.9
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/publish1159-reviewed.yml']
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Require exact successful final review and verify draft bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GH_REPO/actions/runs/41091950315" > "$RUNNER_TEMP/run.json"
+          jq -e '.status == "completed" and .conclusion == "success" and .head_sha == "23f177ee27d56fff85e1313fe76351fb92cdceb6" and .path == ".github/workflows/review1159network.yml"' "$RUNNER_TEMP/run.json"
+          gh release view v1.15.9 --json isDraft,tagName | jq -e '.isDraft == true and .tagName == "v1.15.9"'
+          gh release download v1.15.9 --pattern TeknikServis_PRO.exe --pattern result.json --dir "$RUNNER_TEMP/verified-release"
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          p=Path(os.environ['RUNNER_TEMP'])/'verified-release'
+          expected='28f165a4d71d9fa4f9e64737556d8225d7b3f35e62e5a9bf52cea98b3b75c355'
+          r=json.loads((p/'result.json').read_text(encoding='utf-8-sig'))
+          assert r['verdict']=='NO_DETECTION_IN_THIS_ENVIRONMENT' and r['startupVerified'] and not r['errors'], 'Final verification did not pass'
+          assert r['protectedNetworkUiChecks']['actualHoverExplanation'], 'Action hover was not verified'
+          assert r['exeSha256']==expected and hashlib.sha256((p/'TeknikServis_PRO.exe').read_bytes()).hexdigest()==expected, 'Final EXE hash mismatch'
+          print('Exact tested draft verified; all gates passed and screenshots reviewed before this workflow was committed.')
+          PY
+      - name: Publish tested release and verify public download
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release edit v1.15.9 --draft=false --latest
+          curl --fail --location --retry 3 --silent --show-error "https://github.com/$GH_REPO/releases/download/v1.15.9/TeknikServis_PRO.exe" -o "$RUNNER_TEMP/public.exe"
+          printf '%s  %s\n' '28f165a4d71d9fa4f9e64737556d8225d7b3f35e62e5a9bf52cea98b3b75c355' "$RUNNER_TEMP/public.exe" | sha256sum --check
+
