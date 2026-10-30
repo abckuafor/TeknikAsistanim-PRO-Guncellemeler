@@ -15,6 +15,13 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+      - name: Reconstruct final Windows test archives
+        shell: pwsh
+        run: |
+          foreach($name in @('comfort-checks','network-windows-checks','summary-checks','help-checks','embedded-checks','hardware-checks','updater-checks','network-checks','format-checks','browser-checks')) {
+            $stream=[IO.File]::Create((Join-Path $pwd "verification/$name.zip"))
+            try { Get-ChildItem "verification/final-parts/$name-*.part" | Sort-Object Name | ForEach-Object { $f=[IO.File]::OpenRead($_.FullName); try {$f.CopyTo($stream)} finally {$f.Dispose()} } } finally {$stream.Dispose()}
+          }
       - name: Protected network policy and synthetic Windows command fixtures
         shell: pwsh
         run: |
