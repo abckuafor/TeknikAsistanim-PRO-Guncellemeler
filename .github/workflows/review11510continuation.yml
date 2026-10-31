@@ -409,13 +409,26 @@ jobs:
             if($work.StartsWith($folder,[StringComparison]::OrdinalIgnoreCase)){throw 'Runtime workspace is still beside the EXE'}
             if([IO.File]::ReadAllText((Join-Path $work 'Data/fixture-preserve.txt')) -ne 'synthetic-keep-data'){throw 'Legacy migration missing private record'}
             $cacheRoots=@((Join-Path $work 'Data/Updates/Pending'),(Join-Path $env:ProgramFiles 'TeknikServisPRO_UpdateStaging'),(Join-Path $env:LOCALAPPDATA 'TeknikServisPRO_BundleStaging'))
-            $warmMarker=$null
+            $warmMarker=$null;$checks=Join-Path $env:RUNNER_TEMP 'embedded-checks/EmbeddedData1140.Checks.dll'
+            $result.checkpointReadinessProbes=@()
             for($i=0;$i -lt 100;$i++){
-              foreach($cacheRoot in $cacheRoots){if(Test-Path $cacheRoot){foreach($entry in (Get-ChildItem $cacheRoot -Directory -ErrorAction SilentlyContinue)){$marker=Join-Path $entry.FullName 'checkpoint-ready.json';if(Test-Path $marker){$meta=Get-Content $marker|ConvertFrom-Json;if([DateTime]$meta.PreparedUtc -ge $app.StartTime.ToUniversalTime()){$warmMarker=$marker}}}}}
+              foreach($cacheRoot in $cacheRoots){if(Test-Path $cacheRoot){foreach($entry in (Get-ChildItem $cacheRoot -Directory -ErrorAction SilentlyContinue)){
+                $marker=Join-Path $entry.FullName 'checkpoint-ready.json'
+                if(Test-Path $marker){try{
+                  $meta=Get-Content $marker|ConvertFrom-Json
+                  if([DateTime]$meta.PreparedUtc -ge $app.StartTime.ToUniversalTime()){
+                    $prepared=Join-Path $entry.FullName 'packed.exe'
+                    $probe=dotnet $checks --matches-workspace $prepared $work | ConvertFrom-Json
+                    if($LASTEXITCODE -ne 0){throw 'Readiness probe failed'}
+                    $result.checkpointReadinessProbes=@($result.checkpointReadinessProbes|Select-Object -Last 7)+@(@{preparedUtc=$meta.PreparedUtc;matches=$probe.Matches;baseHash=$probe.BaseSha256;generation=$probe.Generation;identityMatches=$probe.IdentityMatches;changed=$probe.Changed;extra=$probe.Extra})
+                    if($probe.Matches -and $probe.BaseSha256.ToLowerInvariant() -eq $result.exeSha256){$warmMarker=$marker;break}
+                  }
+                }catch{$result.lastCheckpointProbeError=$_.Exception.Message}}
+              };if($warmMarker){break}}}
               if($warmMarker){break};Start-Sleep -Milliseconds 250
             }
-            if(!$warmMarker){throw 'Background portable snapshot was not prepared while application was open'}
-            $result.backgroundCheckpointReady=$true
+            if(!$warmMarker){throw 'No background snapshot matched the latest workspace before close'}
+            $result.backgroundCheckpointReady=$true;$result.currentBackgroundSnapshotVerified=$true
             $closeWatch=[Diagnostics.Stopwatch]::StartNew()
 
             if(![NoticeCloser]::PostMessage([IntPtr]$root.Current.NativeWindowHandle,0x0010,[IntPtr]::Zero,[IntPtr]::Zero)){throw 'Main window close request failed'}
@@ -446,7 +459,7 @@ jobs:
             }
             $first=WaitSaved $folder 1
             $closeWatch.Stop();$result.warmCloseMilliseconds=$closeWatch.ElapsedMilliseconds
-            if(!$first.preparedInBackground){throw 'Normal close repackaged rather than using the ready background snapshot'}
+            if(!$first.preparedInBackground){try{$lastPrepared=Join-Path (Split-Path -Parent $warmMarker) 'packed.exe';$result.checkpointAfterClose=dotnet $checks --matches-workspace $lastPrepared $work|ConvertFrom-Json}catch{$result.checkpointAfterCloseError=$_.Exception.Message};throw 'Normal close repackaged rather than using the ready background snapshot'}
             $result.usedBackgroundSnapshotAtClose=$true
             if($closeWatch.Elapsed.TotalSeconds -gt 25){throw 'Warm close exceeded the bounded regression budget'}
             dotnet $checks --verify-personalized $exe
