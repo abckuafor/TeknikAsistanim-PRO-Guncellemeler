@@ -680,3 +680,5 @@ jobs:
           retention-days: 14
 
 # Final source includes persisted partial-source outcomes and context-specific backup guidance.
+
+# Final cancellation outcomes remain distinct from source access failures.
