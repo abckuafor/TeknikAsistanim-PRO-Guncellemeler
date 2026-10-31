@@ -678,3 +678,5 @@ jobs:
             ${{ runner.temp }}/network-windows-results.txt
 
           retention-days: 14
+
+# Final source includes persisted partial-source outcomes and context-specific backup guidance.
